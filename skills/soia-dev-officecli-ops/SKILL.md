@@ -1,9 +1,9 @@
 ---
 name: soia-dev-officecli-ops
-description: OfficeCLI 原子操作层：检查环境，读取、查询、复制后修改并验证 DOCX/XLSX/PPTX，提供稳定元素路径、原子 batch、HTML/截图预览和 MCP/CLI 使用边界。适用于「检查 Office 文件」「修改 Word/Excel/PPT」「批量修复 Office」「验证 OpenXML」「OfficeCLI」「officecli ops」。
-version: 1.0.1
+description: 以 OfficeCLI 安全读取、复制后修改并验证 DOCX、XLSX、PPTX。触发：「OfficeCLI」「OpenXML 验证」「Office 文件原子修改」
+version: 1.0.2
 created_at: 2026-07-22 18:02:28
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-07-23 07:16:14
 created_by: gpt-5.6-luna
 updated_by: gpt-5.6-luna
 ---
