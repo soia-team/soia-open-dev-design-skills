@@ -1,9 +1,9 @@
 ---
 name: soia-dev-archify-diagrams
-description: Draw, improve, validate, or publish Archify architecture / data-flow / sequence / lifecycle diagrams with JSON IR and PNG previews. Triggers：「画架构图」「画时序图/流程图」「给 README 配图」「用 Archify 画」
-version: 1.1.1
+description: 用 Archify 将架构、数据流和流程说明生成可维护 JSON 图表及 PNG 预览。触发：「用 Archify 画」「Archify 架构图」「Archify 时序图」
+version: 1.1.2
 created_at: 2026-07-09 07:45:34
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-07-23 07:16:14
 created_by: claude opus 4.6
 updated_by: gpt-5.6-luna
 ---

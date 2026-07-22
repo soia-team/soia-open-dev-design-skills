@@ -1,9 +1,9 @@
 ---
 name: soia-dev-drawio-visio-diagrams
-description: 读取和盘点 Microsoft Visio VSDX，使用 draw.io Desktop 将 VSDX 转为可编辑的 .drawio 真源，理解页面、图形、文字与连接关系，按受控计划更新标签、样式、几何与页面名，并导出 PNG、SVG、PDF 或 JPG；适用于“读懂 ProcessOn 导出的 Visio”“把 VSDX 转成 draw.io”“升级现有架构图/流程图”“批量校验图表”等请求。
-version: 1.0.2
+description: 将 Visio VSDX 安全转换、盘点和受控升级为可编辑 draw.io 图表。触发：「VSDX 转 draw.io」「Visio 图表升级」「draw.io 图表盘点」
+version: 1.0.3
 created_at: 2026-07-21 10:01:24
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-07-23 07:16:14
 created_by: gpt-5.6-sol
 updated_by: gpt-5.6-luna
 ---
