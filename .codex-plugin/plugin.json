@@ -1,0 +1,23 @@
+{
+  "name": "soia-dev-design",
+  "version": "1.0.0",
+  "description": "设计与文档产线技能：Open Design、Archify、draw.io/Visio、OfficeCLI",
+  "author": {
+    "name": "soia-team"
+  },
+  "interface": {
+    "displayName": "设计与文档技能库",
+    "shortDescription": "Open Design、Archify、draw.io/Visio 与 OfficeCLI",
+    "longDescription": "覆盖 Open Design、Archify、draw.io/Visio 与 OfficeCLI 的设计和文档产线技能。",
+    "developerName": "soia-team",
+    "category": "Design",
+    "capabilities": [
+      "界面设计",
+      "架构图表",
+      "办公文档"
+    ],
+    "defaultPrompt": [
+      "请把当前需求转换为清晰、可编辑的设计或架构图。"
+    ]
+  }
+}
