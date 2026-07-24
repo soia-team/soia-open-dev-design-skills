@@ -8,6 +8,7 @@ A reusable skill set for software and document design workflows across Open Desi
 |---|---|
 | `soia-dev-archify-diagrams` | Generate maintainable architecture, data-flow, and process diagrams with Archify and PNG previews. |
 | `soia-dev-design-explorer` | Explore high-fidelity HTML prototypes, design variants, slides, and animation with Open Design. |
+| `soia-dev-draft-prd` | Draft a PRD from a short request and structure goals, user stories, scope, acceptance criteria, and risks. |
 | `soia-dev-drawio-visio-diagrams` | Safely convert, inventory, and upgrade Visio VSDX files into editable draw.io diagrams. |
 | `soia-dev-officecli-ops` | Safely read, copy-edit, and validate DOCX, XLSX, and PPTX files with OfficeCLI. |
 | `soia-dev-open-design-ops` | Manage Open Design environments, project onboarding, resource queries, exports, and session recovery. |
