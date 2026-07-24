@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD 草稿助手"
+  short_description: "将一句话产品想法整理为可评审的互联网通用 PRD。"
+  default_prompt: "为 ExampleCorp 的示例产品起草 PRD：帮助新用户完成首次任务。"
