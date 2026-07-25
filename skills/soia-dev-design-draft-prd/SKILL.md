@@ -1,14 +1,14 @@
 ---
-name: soia-dev-draft-prd
+name: soia-dev-design-draft-prd
 description: 起草互联网通用 PRD、产品需求文档与用户故事；适用于一句话需求补全、功能范围和验收标准梳理。
-version: 1.0.0
+version: 2.0.0
 created_at: 2026-07-23 00:02:50
-updated_at: 2026-07-23 00:02:50
+updated_at: 2026-07-25 13:03:46
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: claude opus 5
 ---
 
-# soia-dev-draft-prd
+# soia-dev-design-draft-prd
 
 将模糊的互联网产品想法转化为可评审的产品需求文档（PRD）。输入可以是一句话需求或已有材料；输出是明确标注假设、范围和待决事项的 PRD 草稿，而非未经验证的实现承诺。
 
@@ -33,10 +33,10 @@ updated_by: gpt-5
 这是纯方法论技能，无强依赖、可选工具依赖或私有配置；不读取公司知识库，不执行代码、数据或远端系统操作。
 
 ```bash
-npx skills add soia-team/soia-open-dev-product-skills -g -a '*' -s soia-dev-draft-prd -y
+npx skills add soia-team/soia-open-dev-product-skills -g -a '*' -s soia-dev-design-draft-prd -y
 ```
 
-配置约定采用 schema v2：`~/.config/soia-skills/soia-dev-draft-prd/config.yml`。本技能默认无需创建该文件；如客户希望长期复用文档模板、术语表或默认交付格式，可在其自有配置中定义，且不得放入凭据或私密业务资料。
+配置约定采用 schema v2：`~/.config/soia-skills/soia-dev-design-draft-prd/config.yml`。本技能默认无需创建该文件；如客户希望长期复用文档模板、术语表或默认交付格式，可在其自有配置中定义，且不得放入凭据或私密业务资料。
 
 ## 工作流程
 
