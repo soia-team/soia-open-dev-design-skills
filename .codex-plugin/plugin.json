@@ -18,7 +18,8 @@
     ],
     "defaultPrompt": [
       "请把当前需求转换为清晰、可编辑的设计或架构图。"
-    ]
+    ],
+    "websiteURL": "https://github.com/soia-team/soia-open-dev-design-skills"
   },
   "homepage": "https://github.com/soia-team/soia-open-dev-design-skills"
 }
