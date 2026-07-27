@@ -1,11 +1,11 @@
 ---
 name: soia-dev-open-design-ops
-description: Open Design 原子操作层：环境/安装/daemon 健康管理，DESIGN.md/三件套与项目接入，skills/templates 查询，HTML/PDF/PPTX/MP4 导出及会话 resume；供上层设计流程调用。Triggers：「检查 Open Design」「接入 DESIGN.md」「查询设计目录」「导出设计产物」「恢复设计会话」
-version: 1.0.1
+description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
+version: 1.0.2
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-07-27 10:47:17
 created_by: gpt-5.6-sol
-updated_by: gpt-5.6-luna
+updated_by: gpt-5.6-sol
 ---
 
 # soia-dev-open-design-ops — Open Design 原子操作层
@@ -25,6 +25,8 @@ updated_by: gpt-5.6-luna
 | 继续已有设计会话 | 复用 daemon 保存的原生 session handle | 同一会话的 follow-up 结果或明确降级原因 |
 
 ### 客户如何使用
+
+其他可识别说法包括「查询设计目录」「导出设计产物」；要求设计探索或评审时由上层 `soia-dev-design-explorer` 编排，本技能只执行原子操作。
 
 1. 说明目标：环境检查、daemon、设计系统、目录查询、渲染/导出或继续会话。
 2. 提供 Open Design checkout 路径；设计系统接入时再提供项目路径或 `DESIGN.md`。
