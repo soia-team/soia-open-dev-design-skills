@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.30"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF3D1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="230" fill="url(#sheen)"/>
+
+  <!-- 字形：先画一层下沉暗影再画本体，制造轻微厚度 -->
+  <g transform="translate(512,452)" fill="none" stroke-width="40"
+     stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#B45309" opacity="0.38" transform="translate(0,14)">
+      <polygon points="-200,110 60,110 -70,-115"/>
+      <line x1="95" y1="-120" x2="215" y2="-120"/>
+      <line x1="155" y1="-120" x2="155" y2="120"/>
+      <line x1="95" y1="120" x2="215" y2="120"/></g>
+    <g stroke="url(#ink)">
+      <polygon points="-200,110 60,110 -70,-115"/>
+      <line x1="95" y1="-120" x2="215" y2="-120"/>
+      <line x1="155" y1="-120" x2="155" y2="120"/>
+      <line x1="95" y1="120" x2="215" y2="120"/></g>
+  </g>
+
+  <text x="512" y="838" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="108" font-weight="600" letter-spacing="4"
+        fill="#FFFFFF" fill-opacity="0.94">design</text>
+</svg>
