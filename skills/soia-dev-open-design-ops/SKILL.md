@@ -1,11 +1,11 @@
 ---
 name: soia-dev-open-design-ops
-description: Open Design 原子操作层：环境/安装/daemon 健康管理，DESIGN.md/三件套与项目接入，skills/templates 查询，HTML/PDF/PPTX/MP4 导出及会话 resume；供上层设计流程调用。Triggers：「检查 Open Design」「接入 DESIGN.md」「查询设计目录」「导出设计产物」「恢复设计会话」
-version: 1.0.1
+description: Open Design 原子操作层：环境健康检查、项目接入、模板查询与设计产物导出。供上层设计流程调用。触发：「检查 Open Design」「导出设计产物」
+version: 1.0.2
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-07-27 10:51:10
 created_by: gpt-5.6-sol
-updated_by: gpt-5.6-luna
+updated_by: claude opus 5
 ---
 
 # soia-dev-open-design-ops — Open Design 原子操作层
