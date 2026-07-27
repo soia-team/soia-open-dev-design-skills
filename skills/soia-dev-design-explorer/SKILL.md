@@ -45,6 +45,16 @@ updated_by: gpt-5.6-luna
 安装本技能及其硬依赖：
 
 ```bash
+claude plugin marketplace add soia-team/soia-open-skills
+```
+
+```bash
+claude plugin install soia-dev-design@soia
+```
+
+插件会连同硬依赖 `soia-dev-open-design-ops` 一起装好。只要这一个技能时，可用 npx 路线，但两个技能都得装，且会落进共享真源 `~/.agents/skills`：
+
+```bash
 npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-design-explorer -y
 npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-open-design-ops -y
 ```

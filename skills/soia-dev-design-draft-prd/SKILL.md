@@ -33,7 +33,17 @@ updated_by: claude opus 5
 这是纯方法论技能，无强依赖、可选工具依赖或私有配置；不读取公司知识库，不执行代码、数据或远端系统操作。
 
 ```bash
-npx skills add soia-team/soia-open-dev-product-skills -g -a '*' -s soia-dev-design-draft-prd -y
+claude plugin marketplace add soia-team/soia-open-skills
+```
+
+```bash
+claude plugin install soia-dev-design@soia
+```
+
+只要这一个技能时，可用 npx 路线。注意技能会落进共享真源 `~/.agents/skills`；若同时装了插件，同一技能会出现两份索引且各自漂移，建议二选一：
+
+```bash
+npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-design-draft-prd -y
 ```
 
 配置约定采用 schema v2：`~/.config/soia-skills/soia-dev-design-draft-prd/config.yml`。本技能默认无需创建该文件；如客户希望长期复用文档模板、术语表或默认交付格式，可在其自有配置中定义，且不得放入凭据或私密业务资料。
