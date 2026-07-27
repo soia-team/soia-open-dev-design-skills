@@ -1,6 +1,6 @@
 {
   "name": "soia-dev-design",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "设计与文档产线技能：Open Design、Archify、draw.io/Visio、OfficeCLI",
   "author": {
     "name": "soia-team"
@@ -20,7 +20,7 @@
       "请把当前需求转换为清晰、可编辑的设计或架构图。"
     ],
     "websiteURL": "https://github.com/soia-team/soia-open-dev-design-skills",
-    "composerIcon": "./assets/icon.png",
+    "composerIcon": "./assets/icon.svg",
     "logo": "./assets/icon.png",
     "brandColor": "#FBBF24"
   },
