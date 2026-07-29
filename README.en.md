@@ -62,7 +62,9 @@ Skills marked 🟡 need external tooling such as Open Design or Archify; each ch
 
 ## Trigger phrases
 
-Once installed, just speak naturally — the agent routes to a skill by these phrases (the full trigger list lives in each skill's `SKILL.md` `description`):
+Once installed, just speak naturally — the agent routes to a skill by these phrases (the full trigger list lives in each skill's `SKILL.md` `description`).
+
+> Trigger phrases are listed in the language the skill actually matches on. Most are Chinese because that is what these skills were written to recognize; describing the same intent in English works too — the agent matches on meaning, not on the literal string.
 
 | You say | Skill |
 |---|---|
