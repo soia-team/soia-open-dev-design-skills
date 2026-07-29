@@ -54,8 +54,8 @@ Office 产物（DOCX / XLSX / PPTX，可编辑且经校验）
 | 技能 | 一句话职责 | 开箱可用 |
 |---|---|---|
 | `soia-dev-archify-diagrams` | 用 Archify 将架构、数据流和流程说明生成可维护 JSON 图表及 PNG 预览。 | 🟡 |
-| `soia-dev-design-draft-prd` | 起草互联网通用 PRD、产品需求文档与用户故事；适用于一句话需求补全、功能范围和验收标准梳理。 | ✅ |
-| `soia-dev-design-explorer` | 基于 Open Design（经 soia-dev-open-design-ops）做高保真 HTML 原型、设计变体、幻灯片、动画探索与设计评审；要求用户品牌输入、五分类输出落点与可复现验证。 | 🟡 |
+| `soia-dev-design-draft-prd` | 起草互联网通用 PRD、产品需求文档与用户故事。 | ✅ |
+| `soia-dev-design-explorer` | 基于 Open Design 做高保真原型、设计变体与评审。 | 🟡 |
 | `soia-dev-drawio-visio-diagrams` | 将 Visio VSDX 安全转换、盘点和受控升级为可编辑 draw.io 图表。 | ✅ |
 | `soia-dev-officecli-ops` | 以 OfficeCLI 安全读取、复制后修改并验证 DOCX、XLSX、PPTX。 | ✅ |
 | `soia-dev-open-design-ops` | 提供供上层设计流程调用的 Open Design 原子操作与运行保障。 | 🟡 |
