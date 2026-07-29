@@ -60,6 +60,17 @@ Skills marked 🟡 need external tooling such as Open Design or Archify; each ch
 | `soia-dev-officecli-ops` | Safely read, copy-edit, and validate DOCX, XLSX, and PPTX files with OfficeCLI. | ✅ |
 | `soia-dev-open-design-ops` | Manage Open Design environments, project onboarding, resource queries, exports, and session recovery. | 🟡 |
 
+## Trigger phrases
+
+Once installed, just speak naturally — the agent routes to a skill by these phrases (the full trigger list lives in each skill's `SKILL.md` `description`):
+
+| You say | Skill |
+|---|---|
+| `用 Archify 画` / `Archify 架构图` / `Archify 时序图` | `soia-dev-archify-diagrams` |
+| `VSDX 转 draw.io` / `Visio 图表升级` / `draw.io 图表盘点` | `soia-dev-drawio-visio-diagrams` |
+| `OfficeCLI` / `OpenXML 验证` / `Office 文件原子修改` | `soia-dev-officecli-ops` |
+| `检查 Open Design` / `接入 DESIGN.md` / `恢复设计会话` | `soia-dev-open-design-ops` |
+
 ## Install
 
 Installing the whole domain plugin is recommended — it brings every skill in this repo:
@@ -86,6 +97,19 @@ twice and the two copies drift apart — pick one:
 ```bash
 npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s <skill-name> -y
 ```
+
+## Validate & contribute
+
+After changing a skill, run before committing:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 scripts/generate_skill_catalog.py --check
+python3 scripts/audit_skills.py --strict
+```
+
+Contribution flow, the skill contract, and release steps are in the portal's
+[CONTRIBUTING.md](https://github.com/soia-team/soia-open-skills/blob/main/CONTRIBUTING.md).
 
 ## Ecosystem
 
