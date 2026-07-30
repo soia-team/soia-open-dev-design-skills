@@ -1,123 +1,98 @@
-# SOIA Design & Document Skills
+<div align="center">
 
-[中文](README.md) · English
+<img src="assets/icon.png" width="88" alt="">
 
-Turn requirements into something you can look at: PRDs, prototypes, architecture diagrams, Office files — all editable, not screenshots.
+# SOIA Open Dev Design Skills
 
-## What this is
+**From a one-line request to a reviewable document and a clickable prototype**
 
-`soia-open-dev-design-skills` covers the design and document pipeline from requirement to deliverable:
+6 skills covering PRDs, high-fidelity prototypes, architecture diagrams, and safe edits to Office files
 
-```text
-One-line idea
-    ↓
-PRD (scope, user stories, acceptance criteria)
-    ↓
-Prototype / diagram (Open Design hi-fi · Archify architecture · draw.io flows)
-    ↓
-Office artifacts (DOCX / XLSX / PPTX, editable and validated)
+[中文](README.md) · English · [Ecosystem portal](https://github.com/soia-team/soia-open-skills)
+
+</div>
+
+---
+
+## What it solves
+
+A request often arrives as one line, while everyone downstream needs **something they can build from** — scope, acceptance criteria, a prototype, an architecture diagram. The missing piece is the stretch that takes one line to something deliverable.
+
+```mermaid
+flowchart LR
+    A["One-line request"] --> B["PRD<br/>scope · non-goals · acceptance"]
+    B --> C["High-fidelity prototype<br/>variants · review"]
+    B --> D["Architecture / sequence<br/>maintainable source + preview"]
+    C --> E["Office deliverables<br/>DOCX · XLSX · PPTX"]
+    D --> E
 ```
 
-Every diagram is an **editable source file** (JSON, drawio, OpenXML), not a one-off screenshot — you can revise it, reuse it, and keep it under version control.
+## 6 skills
 
-### When to use it
+### 01 Requirements and prototypes　`One line → PRD, user stories, a clickable prototype`
 
-- "Turn this idea into a PRD we can review."
-- "Draw an architecture diagram for this system."
-- "Convert my pile of Visio files into editable draw.io diagrams."
-- "Build a hi-fi prototype so I can see it."
-- "Edit this spreadsheet without breaking the formatting."
+| Skill | Responsibility | Ready |
+|---|---|:-:|
+| `soia-dev-design-draft-prd` | Drafts PRDs, requirement docs and user stories; fills in scope and acceptance criteria | ✅ |
+| `soia-dev-design-explorer` | High-fidelity HTML prototypes, design variants, decks and design review on Open Design | 🟡 |
+| `soia-dev-open-design-ops` | Atomic Open Design operations and runtime guarantees for the layers above | 🟡 |
 
-### What it does not do
+### 02 Diagrams　`Architecture and process notes → maintainable diagram source + preview`
 
-- No visual brand design. Palettes, logos, and brand guidelines are out of scope.
-- Not a replacement for a designer. Output is a reviewable draft and editable source, not a final visual.
-- Never edits original Office files in place. It copies first, then modifies, then validates OpenXML.
-- No social-media formatting or publishing — see [soia-open-media-content-skills](https://github.com/soia-team/soia-open-media-content-skills).
+| Skill | Responsibility | Ready |
+|---|---|:-:|
+| `soia-dev-archify-diagrams` | Generates maintainable JSON diagrams and PNG previews via Archify (architecture, data flow, sequence) | 🟡 |
+| `soia-dev-drawio-visio-diagrams` | Safely converts, inventories and upgrades Visio VSDX into editable draw.io | ✅ |
 
-## Where to start
+### 03 Office files　`Existing documents → copied, modified, format-verified`
 
-| Your task | Use | Done when |
-|---|---|---|
-| Write an idea up as a PRD | `soia-dev-design-draft-prd` | Scope, user stories, acceptance criteria present |
-| Draw architecture or sequence diagrams | `soia-dev-archify-diagrams` | Maintainable JSON plus PNG preview |
-| Convert Visio to editable diagrams | `soia-dev-drawio-visio-diagrams` | drawio source is re-editable |
-| Build a hi-fi prototype | `soia-dev-design-explorer` | HTML prototype with design review notes |
-| Edit Word/Excel/PowerPoint | `soia-dev-officecli-ops` | Copy-then-modify, OpenXML validation passes |
+| Skill | Responsibility | Ready |
+|---|---|:-:|
+| `soia-dev-officecli-ops` | Reads, copies-then-modifies and verifies DOCX, XLSX and PPTX via OfficeCLI | 🟡 |
 
-Skills marked 🟡 need external tooling such as Open Design or Archify; each checks and reports what is missing before running.
-
-## Skill catalog
-
-> **Ready to use**: ✅ works right after install · 🟡 needs an API key or a third-party login first
-
-| Skill | Responsibility | Ready to use |
-|---|---|---|
-| `soia-dev-archify-diagrams` | Generate maintainable architecture, data-flow, and process diagrams with Archify and PNG previews. | 🟡 |
-| `soia-dev-design-draft-prd` | Draft general-purpose PRDs, product requirement documents, and user stories from a one-line idea. | ✅ |
-| `soia-dev-design-explorer` | Explore high-fidelity HTML prototypes, design variants, slides, and animation with Open Design. | 🟡 |
-| `soia-dev-drawio-visio-diagrams` | Safely convert, inventory, and upgrade Visio VSDX files into editable draw.io diagrams. | ✅ |
-| `soia-dev-officecli-ops` | Safely read, copy-edit, and validate DOCX, XLSX, and PPTX files with OfficeCLI. | ✅ |
-| `soia-dev-open-design-ops` | Manage Open Design environments, project onboarding, resource queries, exports, and session recovery. | 🟡 |
-
-## Trigger phrases
-
-Once installed, just speak naturally — the agent routes to a skill by these phrases (the full trigger list lives in each skill's `SKILL.md` `description`).
-
-> Trigger phrases are listed in the language the skill actually matches on. Most are Chinese because that is what these skills were written to recognize; describing the same intent in English works too — the agent matches on meaning, not on the literal string.
-
-| You say | Skill |
-|---|---|
-| `用 Archify 画` / `Archify 架构图` / `Archify 时序图` | `soia-dev-archify-diagrams` |
-| `VSDX 转 draw.io` / `Visio 图表升级` / `draw.io 图表盘点` | `soia-dev-drawio-visio-diagrams` |
-| `OfficeCLI` / `OpenXML 验证` / `Office 文件原子修改` | `soia-dev-officecli-ops` |
-| `检查 Open Design` / `接入 DESIGN.md` / `恢复设计会话` | `soia-dev-open-design-ops` |
+✅ Works right after install　🟡 Needs the corresponding tool or an API key first; the skill tells you what is missing before it runs
 
 ## Install
 
-Installing the whole domain plugin is recommended — it brings every skill in this repo:
+Any of three hosts. Installing the domain plugin brings all 6 skills at once.
 
 ```bash
-claude plugin marketplace add soia-team/soia-open-skills
+claude plugin marketplace add soia-team/soia-open-skills && claude plugin install soia-dev-design@soia
 ```
 
 ```bash
-claude plugin install soia-dev-design@soia
+codex plugin marketplace add soia-team/soia-open-skills && codex plugin add soia-dev-design@soia
 ```
 
-For Codex:
+WorkBuddy is a desktop app with no CLI, so a skill does the work — tell your agent "install into WorkBuddy", or run:
 
 ```bash
-codex plugin marketplace add soia-team/soia-open-skills
-codex plugin add soia-dev-design@soia
+python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbuddy_experts.py soia-dev-design
 ```
 
-For a single skill you can use the npx route. Note the skill lands in the shared
-source `~/.agents/skills`; if the plugin is installed too, the same skill shows up
-twice and the two copies drift apart — pick one:
+Restart the client, then summon **Soia · 产品设计与文档** under Experts → My Experts.
+
+> **Always-on cost ~548 tok**. `claude plugin disable soia-dev-design@soia` drops it to zero; enable it again any time.
+> For a single skill use npx: `npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s <skill-name> -y` — pick one route or the other; running both puts the same skill in the index twice and the copies drift apart.
+
+## What it does not do
+
+- **Does not make product decisions.** Trade-offs and priorities are yours to call; the skills lay out the options and their costs.
+- **Does not invent context.** When information is missing it asks, rather than filling the gap with industry boilerplate.
+- **Does not invent your visual system.** Designs that need brand input ask for the assets first.
+- **Never edits an Office file in place.** Always copy first, then modify, then run OpenXML validation.
+- **Does not install environments.** Open Design, draw.io and similar prerequisites belong to [soia-open-env-skills](https://github.com/soia-team/soia-open-env-skills).
+
+## Contributing
+
+Before committing a skill change:
 
 ```bash
-npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s <skill-name> -y
+python3 -m unittest discover -s tests -p 'test_*.py' && python3 scripts/audit_skills.py --strict && python3 scripts/generate_expert_manifest.py --check
 ```
 
-## Validate & contribute
-
-After changing a skill, run before committing:
-
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py'
-python3 scripts/generate_skill_catalog.py --check
-python3 scripts/audit_skills.py --strict
-```
-
-Contribution flow, the skill contract, and release steps are in the portal's
-[CONTRIBUTING.md](https://github.com/soia-team/soia-open-skills/blob/main/CONTRIBUTING.md).
-
-## Ecosystem
-
-Specifications, the full ecosystem catalog, and install guides live in [soia-team/soia-open-skills](https://github.com/soia-team/soia-open-skills).
-The full maintenance workflow is in [CONTRIBUTING.md](https://github.com/soia-team/soia-open-skills/blob/main/CONTRIBUTING.md).
+Full workflow in the portal's [CONTRIBUTING.md](https://github.com/soia-team/soia-open-skills/blob/main/CONTRIBUTING.md).
 
 ## License
 
-MIT License — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](./LICENSE).
