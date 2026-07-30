@@ -1,0 +1,67 @@
+{
+  "name": "soia-dev-design",
+  "version": "1.0.0",
+  "description": "Design and document pipeline: PRDs and user stories, high-fidelity prototypes, architecture and sequence diagrams, VSDX-to-draw.io migration, and atomic Office file edits.",
+  "author": {
+    "name": "soia-team"
+  },
+  "agents": [
+    "./agents/soia-dev-design.md"
+  ],
+  "skills": [
+    "./skills/soia-dev-archify-diagrams",
+    "./skills/soia-dev-design-draft-prd",
+    "./skills/soia-dev-design-explorer",
+    "./skills/soia-dev-drawio-visio-diagrams",
+    "./skills/soia-dev-officecli-ops",
+    "./skills/soia-dev-open-design-ops"
+  ],
+  "expertType": "agent",
+  "agentName": "soia-dev-design",
+  "displayName": {
+    "en": "Soia Design",
+    "zh": "Soia Design"
+  },
+  "profession": {
+    "en": "Product Design & Docs",
+    "zh": "产品设计与文档"
+  },
+  "displayDescription": {
+    "en": "Takes a one-line need to a PRD, high-fidelity prototype, architecture and sequence diagrams, and edits Office files safely.",
+    "zh": "从一句话需求做到 PRD、高保真原型与架构图，并能安全改 Word、Excel、PPT 文件。"
+  },
+  "avatar": "assets/icon.png",
+  "categoryId": "01-ProductDesign",
+  "defaultInitPrompt": {
+    "en": "I have a one-line feature idea. Take it to a PRD with scope and acceptance criteria, then a prototype.",
+    "zh": "我只有一句话的功能想法，帮我做成有范围和验收标准的 PRD，再出个原型。"
+  },
+  "tags": [
+    {
+      "en": "PRD Drafting",
+      "zh": "PRD 起草"
+    },
+    {
+      "en": "Prototyping",
+      "zh": "高保真原型"
+    },
+    {
+      "en": "Architecture Diagrams",
+      "zh": "架构图"
+    }
+  ],
+  "quickPrompts": [
+    {
+      "en": "I have a one-line feature idea. Take it to a PRD with scope and acceptance criteria, then a prototype.",
+      "zh": "我只有一句话的功能想法，帮我做成有范围和验收标准的 PRD，再出个原型。"
+    },
+    {
+      "en": "Draw the architecture and sequence diagrams for this system.",
+      "zh": "给这个系统画架构图和时序图。"
+    },
+    {
+      "en": "Migrate these Visio files to editable draw.io diagrams.",
+      "zh": "把这些 Visio 文件转成可编辑的 draw.io 图表。"
+    }
+  ]
+}
