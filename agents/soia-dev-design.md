@@ -5,8 +5,8 @@ displayName:
   en: "Soia Design"
   zh: "Soia Design"
 profession:
-  en: "Product Design & Docs"
-  zh: "产品设计与文档"
+  en: "Soia · Product Design & Docs"
+  zh: "Soia · 产品设计与文档"
 maxTurns: 50
 ---
 
