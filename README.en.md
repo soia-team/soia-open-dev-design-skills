@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/hero.webp" width="640" alt="">
+<img src="assets/icon.png" width="88" alt="">
 
 # SOIA Open Dev Design Skills
 
@@ -33,22 +33,22 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| `soia-dev-design-draft-prd` | Drafts PRDs, requirement docs and user stories; fills in scope and acceptance criteria | ✅ |
-| `soia-dev-design-explorer` | High-fidelity HTML prototypes, design variants, decks and design review on Open Design | 🟡 |
-| `soia-dev-open-design-ops` | Atomic Open Design operations and runtime guarantees for the layers above | 🟡 |
+| [`soia-dev-design-draft-prd`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-draft-prd.md) | Drafts PRDs, requirement docs and user stories; fills in scope and acceptance criteria | ✅ |
+| [`soia-dev-design-explorer`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-explorer.md) | High-fidelity HTML prototypes, design variants, decks and design review on Open Design | 🟡 |
+| [`soia-dev-open-design-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-open-design-ops.md) | Atomic Open Design operations and runtime guarantees for the layers above | 🟡 |
 
 ### 02 Diagrams　`Architecture and process notes → maintainable diagram source + preview`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| `soia-dev-archify-diagrams` | Generates maintainable JSON diagrams and PNG previews via Archify (architecture, data flow, sequence) | 🟡 |
-| `soia-dev-drawio-visio-diagrams` | Safely converts, inventories and upgrades Visio VSDX into editable draw.io | ✅ |
+| [`soia-dev-archify-diagrams`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-archify-diagrams.md) | Generates maintainable JSON diagrams and PNG previews via Archify (architecture, data flow, sequence) | 🟡 |
+| [`soia-dev-drawio-visio-diagrams`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-drawio-visio-diagrams.md) | Safely converts, inventories and upgrades Visio VSDX into editable draw.io | ✅ |
 
 ### 03 Office files　`Existing documents → copied, modified, format-verified`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| `soia-dev-officecli-ops` | Reads, copies-then-modifies and verifies DOCX, XLSX and PPTX via OfficeCLI | 🟡 |
+| [`soia-dev-officecli-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-officecli-ops.md) | Reads, copies-then-modifies and verifies DOCX, XLSX and PPTX via OfficeCLI | 🟡 |
 
 ✅ Works right after install　🟡 Needs the corresponding tool or an API key first; the skill tells you what is missing before it runs
 
