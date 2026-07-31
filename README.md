@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/hero.webp" width="640" alt="">
+<img src="assets/icon.png" width="88" alt="">
 
 # SOIA Open Dev Design Skills
 
@@ -33,22 +33,22 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| `soia-dev-design-draft-prd` | 起草 PRD、产品需求文档与用户故事；补全范围与验收标准 | ✅ |
-| `soia-dev-design-explorer` | 基于 Open Design 做高保真 HTML 原型、设计变体、幻灯片与设计评审 | 🟡 |
-| `soia-dev-open-design-ops` | 供上层设计流程调用的 Open Design 原子操作与运行保障 | 🟡 |
+| [`soia-dev-design-draft-prd`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-draft-prd.md) | 起草 PRD、产品需求文档与用户故事；补全范围与验收标准 | ✅ |
+| [`soia-dev-design-explorer`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-explorer.md) | 基于 Open Design 做高保真 HTML 原型、设计变体、幻灯片与设计评审 | 🟡 |
+| [`soia-dev-open-design-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-open-design-ops.md) | 供上层设计流程调用的 Open Design 原子操作与运行保障 | 🟡 |
 
 ### 02 图表　`架构与流程说明 → 可维护的图表源 + 预览`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| `soia-dev-archify-diagrams` | 用 Archify 生成可维护 JSON 图表与 PNG 预览（架构、数据流、时序） | 🟡 |
-| `soia-dev-drawio-visio-diagrams` | 把 Visio VSDX 安全转换、盘点并受控升级为可编辑 draw.io | ✅ |
+| [`soia-dev-archify-diagrams`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-archify-diagrams.md) | 用 Archify 生成可维护 JSON 图表与 PNG 预览（架构、数据流、时序） | 🟡 |
+| [`soia-dev-drawio-visio-diagrams`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-drawio-visio-diagrams.md) | 把 Visio VSDX 安全转换、盘点并受控升级为可编辑 draw.io | ✅ |
 
 ### 03 Office 文件　`既有文档 → 复制后修改并通过格式校验`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| `soia-dev-officecli-ops` | 用 OfficeCLI 安全读取、复制后修改并验证 DOCX、XLSX、PPTX | 🟡 |
+| [`soia-dev-officecli-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-officecli-ops.md) | 用 OfficeCLI 安全读取、复制后修改并验证 DOCX、XLSX、PPTX | 🟡 |
 
 ✅ 装完即用　🟡 需先装对应工具或申请 API key，技能会在执行前告诉你缺什么
 
