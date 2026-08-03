@@ -126,6 +126,113 @@ python3 scripts/daemon_ctl.py stop
 
 默认 URL 是 `http://127.0.0.1:7456`。只允许 loopback URL；需要远端部署、反向代理或 `0.0.0.0` 时，本技能停止并要求客户按 upstream 安全配置处理，不替客户公开本机 daemon。
 
+### 3. 桌面版 App（与 CLI daemon 是两套，别混用）
+
+客户装了 `/Applications/Open Design.app` 时，上面的 CLI daemon 路线基本不适用：
+
+- **数据目录不同**：桌面版在 `~/Library/Application Support/Open Design/namespaces/<namespace>/data/`
+  （`namespace` 通常是 `release-stable`），CLI 在仓库的 `.od/`。**两边互相看不见对方的项目**。
+- **`od` CLI 在打包版里不进 PATH**。官方文档写 `od status`、`curl od://app/...`，但打包安装后：
+  - `/usr/bin/od` 是 macOS 自带的**八进制转储工具**，直接敲 `od status` 会调错程序、报一堆无关错误；
+  - `curl` 不认识 `od://` 这个 Electron 自定义 scheme，`curl -s od://app/api/health` 返回空；
+  - 实测 `--daemon-url od://app` 在命令行下也解析失败（即使显式给了 `OD_SIDECAR_IPC_PATH`），
+    该 scheme 目前只在 MCP sidecar 上下文里可用。
+
+  打包版的 `od` 等价调用（实测可用）：
+
+  ```bash
+  HELPER="/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper"
+  CLI="/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs"
+  od(){ ELECTRON_RUN_AS_NODE=1 "$HELPER" "$CLI" "$@"; }
+  ```
+
+  **它默认打 `http://127.0.0.1:7456`（CLI daemon 的端口），对桌面版无效**，
+  所以每条命令都要显式带 `--daemon-url http://127.0.0.1:<探测到的端口>`。
+
+- **端口每次启动都变，且没有默认值**。不要写死 7456，也不要缓存上次探到的端口：
+
+  ```bash
+  lsof -nP -iTCP -sTCP:LISTEN | grep -i '^Open' | awk '{print $9}' | sed 's/.*://'
+  ```
+
+  逐个探测哪个是 daemon API（返回 `{"projects":[...]}`）；其余端口是 Next.js UI 和代理，会返回 HTML。
+  这件事已脚本化，优先用它，不要每次手敲：
+
+  ```bash
+  python3 scripts/desktop_ctl.py detect      # 活着的 daemon API 端口
+  python3 scripts/desktop_ctl.py projects    # 列项目，并标出谁缺 entryFile
+  python3 scripts/desktop_ctl.py doctor      # 「看不到项目」一键体检
+  ```
+
+  `desktop_ctl.py` 是**只读诊断**：不改客户数据、不重启 App、不打印凭据；
+  daemon 不可达时以非零退出码和明确 hint 收场，不假装正常。
+- **桌面版启动会接管并停掉 CLI daemon**，所以两者不能同时用。
+
+#### 客户报「打开应用看不到项目了，只能重启」
+
+这是桌面版的已知形态，不是数据丢失。根因是 **UI 与 daemon 是独立进程**：daemon 挂掉或换端口后 UI 仍然活着，于是界面能打开、项目列表却空白（代理还在往已死的旧端口转发，返回 `ECONNREFUSED`）。
+
+诊断与处置：
+
+1. 先按上面的命令探测是否还有活着的 daemon API；没有就是 daemon 掉了。
+2. 数据都在磁盘上，**重启 App 即可**，不要试图修复或迁移数据。
+3. 检查 `<data>/projects/` 下有没有 0 字节的孤儿目录——那是 daemon 在建项目途中崩溃的残骸
+   （目录建了、`app.sqlite` 没写入）。确认为空后可以删。
+4. 日志在 `<namespace>/logs/{daemon,desktop,launcher}/`；`launcher/after-quit.log` 反复出现
+   `desktop.sock ENOENT` 属于正常的启动时序，不是故障根因。
+
+**因此：任何要长期留存的设计资产都必须有一份在客户自己的 git 仓库里**，桌面版目录只当镜像。
+
+#### 桌面版的项目元数据（HTTP API 之外的必修课）
+
+`app.sqlite` 的 `projects` 表**没有文件清单、也没有 `entryFile` 字段**——文件从磁盘扫描，
+而 `entryFile` 埋在 `metadata_json` 里：
+
+```json
+{"kind":"prototype","entryFile":"index.html","skipDiscoveryBrief":true}
+```
+
+由此产生两个反复踩到的坑：
+
+- `PATCH /api/projects/:id` 传 `{"entryFile":"..."}` 会返回 200，但**不会写进 metadata_json**，
+  项目卡片仍是空白预览。
+- 直接把文件 `rsync`/`cp` 进项目目录后，卡片同样空白——因为没有 `entryFile` 指明渲染哪个文件。
+
+正确做法：`POST /api/projects` 建项目（`{"id","name"}`，id 必填），把文件放进
+`resolvedDir`（`GET /api/projects/:id` 会返回），为每个可渲染文件补一份
+`<file>.artifact.json`（照同目录已有产物的格式：`version/kind/title/entry/renderer/status/exports`），
+最后确认 `metadata_json.entryFile` 指向入口文件。**改 `app.sqlite` 前先备份，并且只在 App 未在写入时改；改完需要重启 App 才会重新读取。**
+
+### 4. 一个产品只开一个设计项目
+
+不要每做一个页面就新建一个 Open Design 项目——散成一堆之后，客户改任何一页都要先想「这是哪个项目」。
+
+推荐结构（一个项目，文件名与线上路由一一对应）：
+
+```
+<project>/
+├── index.html            入口：全路由对照表，标明哪些有稿、哪些待设计
+├── pages/<route>.html    每个线上路由一个页面稿
+└── specs/*.md            分层设计规范（基础体系 + 各页专项）
+```
+
+新页面通过在**同一个项目**里跑 run 生成，产出落进 `pages/`，再到 `index.html` 里把它从
+「待设计」挪到「已有设计稿」。旧的一次性项目在确认资产已并入后删除，别留着让客户困惑。
+
+命令行直接在既有项目里跑 run（不经 MCP，daemon 重启后立刻可用）：
+
+```bash
+od run start --project <projectId> --agent codex \
+  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
+od run watch <runId> --daemon-url "$DAEMON_URL"   # ND-JSON 事件流
+od run info  <runId> --daemon-url "$DAEMON_URL"
+```
+
+不带 `--plugin` 时 daemon 会自行挑选（例如 `example-web-prototype`）；
+需要特定模板就显式传 `--plugin <id>`（`od` 无 plugin list 子命令，用
+`GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
+不要因为文件 mtime 不动就取消。
+
 ## 设计系统管理与项目接入
 
 ### Design System Project 三件套
