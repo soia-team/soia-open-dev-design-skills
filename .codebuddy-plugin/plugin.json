@@ -1,6 +1,6 @@
 {
   "name": "soia-dev-design",
-  "version": "1.1.0",
+  "version": "1.2.0-SNAPSHOT",
   "description": "Design and document pipeline: PRDs and user stories, high-fidelity prototypes, architecture and sequence diagrams, VSDX-to-draw.io migration, and atomic Office file edits.",
   "author": {
     "name": "soia-team"
