@@ -132,6 +132,23 @@ python3 scripts/daemon_ctl.py stop
 
 - **数据目录不同**：桌面版在 `~/Library/Application Support/Open Design/namespaces/<namespace>/data/`
   （`namespace` 通常是 `release-stable`），CLI 在仓库的 `.od/`。**两边互相看不见对方的项目**。
+- **`od` CLI 在打包版里不进 PATH**。官方文档写 `od status`、`curl od://app/...`，但打包安装后：
+  - `/usr/bin/od` 是 macOS 自带的**八进制转储工具**，直接敲 `od status` 会调错程序、报一堆无关错误；
+  - `curl` 不认识 `od://` 这个 Electron 自定义 scheme，`curl -s od://app/api/health` 返回空；
+  - 实测 `--daemon-url od://app` 在命令行下也解析失败（即使显式给了 `OD_SIDECAR_IPC_PATH`），
+    该 scheme 目前只在 MCP sidecar 上下文里可用。
+
+  打包版的 `od` 等价调用（实测可用）：
+
+  ```bash
+  HELPER="/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper"
+  CLI="/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs"
+  od(){ ELECTRON_RUN_AS_NODE=1 "$HELPER" "$CLI" "$@"; }
+  ```
+
+  **它默认打 `http://127.0.0.1:7456`（CLI daemon 的端口），对桌面版无效**，
+  所以每条命令都要显式带 `--daemon-url http://127.0.0.1:<探测到的端口>`。
+
 - **端口每次启动都变，且没有默认值**。不要写死 7456，也不要缓存上次探到的端口：
 
   ```bash
@@ -201,6 +218,20 @@ python3 scripts/daemon_ctl.py stop
 
 新页面通过在**同一个项目**里跑 run 生成，产出落进 `pages/`，再到 `index.html` 里把它从
 「待设计」挪到「已有设计稿」。旧的一次性项目在确认资产已并入后删除，别留着让客户困惑。
+
+命令行直接在既有项目里跑 run（不经 MCP，daemon 重启后立刻可用）：
+
+```bash
+od run start --project <projectId> --agent codex \
+  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
+od run watch <runId> --daemon-url "$DAEMON_URL"   # ND-JSON 事件流
+od run info  <runId> --daemon-url "$DAEMON_URL"
+```
+
+不带 `--plugin` 时 daemon 会自行挑选（例如 `example-web-prototype`）；
+需要特定模板就显式传 `--plugin <id>`（`od` 无 plugin list 子命令，用
+`GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
+不要因为文件 mtime 不动就取消。
 
 ## 设计系统管理与项目接入
 
