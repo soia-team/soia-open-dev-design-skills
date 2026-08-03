@@ -52,7 +52,32 @@ claude plugin install soia-dev-design@soia
 npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-open-design-ops -y
 ```
 
-Open Design 本地开发 checkout 的上游前置为 Node.js 24.x、pnpm 10.33.x 与 Corepack。按 upstream `QUICKSTART.md`：
+#### Open Design 本体：先探测，再询问，最后才安装
+
+**不要一上来就 clone 或 install。** 多数客户机器上 Open Design 已经在了（桌面版 App
+或既有 checkout），此时一行安装命令都不该跑。按下面的顺序判断，命中即停：
+
+1. **桌面版 App 在跑？**（最常见）
+
+   ```bash
+   python3 scripts/desktop_ctl.py detect
+   ```
+
+   返回 `daemon_api_port` 即可直接用，**到此为止**——不需要 checkout、不需要 Node/pnpm，
+   走本节后面的「桌面版 App」小节即可。
+
+2. **有本地 checkout？** `OPEN_DESIGN_HOME` 指向的目录存在即可用现成的，只是 daemon 没起：
+
+   ```bash
+   python3 scripts/check_env.py
+   ```
+
+3. **两者都没有** → **先问客户，拿到明确同意再装**，并让客户自己选路线：
+   桌面版 App（无需 Node/pnpm，日常使用推荐）还是源码 checkout（要参与 upstream 开发时才需要）。
+   客户没答复之前，停止需要 daemon 的 workflow 并说明缺什么，不要替客户决定。
+
+只有在客户明确选择源码路线后，才使用下面的命令。上游前置为 Node.js 24.x、pnpm 10.33.x
+与 Corepack（按 upstream `QUICKSTART.md`）：
 
 ```bash
 git clone https://github.com/nexu-io/open-design.git <open-design-root>
@@ -62,7 +87,9 @@ corepack pnpm --version   # upstream 当前 pin 10.33.2
 pnpm install
 ```
 
-本技能不安装或内嵌 Open Design，也不把 Open Design 当作另一个 agent skill。Node/pnpm/checkout 任一缺失时，停止需要 daemon 的 workflow，并返回补齐命令。
+本技能不安装或内嵌 Open Design，也不把 Open Design 当作另一个 agent skill。
+Node/pnpm/checkout 任一缺失时，停止需要 daemon 的 workflow，并返回补齐命令——
+**返回命令供客户执行，不代客户执行**。
 
 ### 私有配置
 
@@ -103,7 +130,11 @@ daemon 后台日志与 PID 状态写入用户 state 目录；可用 `OPEN_DESIGN
 
 ## 环境与 daemon
 
-### 1. 检测环境
+> **入口判断先做一次**：客户装了桌面版 App 时，本节 1–2 的 CLI daemon 路线基本不适用，
+> 直接跳到「3. 桌面版 App」。判断只要一条命令：
+> `python3 scripts/desktop_ctl.py detect` 返回 `daemon_api_port` 即为桌面版路线。
+
+### 1. 检测环境（CLI / 源码 checkout 路线）
 
 从本 skill 目录运行：
 
@@ -232,6 +263,10 @@ od run info  <runId> --daemon-url "$DAEMON_URL"
 需要特定模板就显式传 `--plugin <id>`（`od` 无 plugin list 子命令，用
 `GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
 不要因为文件 mtime 不动就取消。
+
+**run 活不过 daemon 重启**：桌面版 daemon 掉线或重启后，进行中的 run 会连同记录一起消失
+（`run info` 返回 `NOT_FOUND`），且不留产物。所以长 run 期间不要重启 App；
+真的重启了就重新 `run start`，不要花时间找回原来那个 runId。
 
 ## 设计系统管理与项目接入
 
