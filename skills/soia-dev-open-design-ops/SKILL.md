@@ -276,6 +276,21 @@ od run info  <runId> --daemon-url "$DAEMON_URL"
 `GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
 不要因为文件 mtime 不动就取消。
 
+**同一项目里做第二个页面，必须先开新会话**：`run start` 不带 `--conversation`
+会复用项目的默认会话。上一轮的任务还在上下文里，agent 会把新 brief 当成
+「继续上一轮」，回一句「当前没有新的改动请求」就正常退出——
+status=succeeded、exit=0、`artifactCount: 0`、无 agentMessage，**一个文件都不写**。
+先建新会话再跑：
+
+```bash
+curl -s -X POST "$DAEMON_URL/api/projects/<projectId>/conversations" \
+  -H 'content-type: application/json' -d '{}'      # 返回 conversation.id
+od run start --project <projectId> --conversation <newId> --agent codex \
+  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
+```
+
+排查时看 `<data>/runs/<runId>/events.jsonl`：agent 的文字输出在 `data.type=="text"` 的事件里。
+
 **run 活不过 daemon 重启**：桌面版 daemon 掉线或重启后，进行中的 run 会连同记录一起消失
 （`run info` 返回 `NOT_FOUND`），且不留产物。所以长 run 期间不要重启 App；
 真的重启了就重新 `run start`，不要花时间找回原来那个 runId。
