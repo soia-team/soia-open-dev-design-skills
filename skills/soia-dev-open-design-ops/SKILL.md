@@ -1,11 +1,11 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.0.2
+version: 1.1.0
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-07-27 10:47:17
+updated_at: 2026-08-03 17:20:00
 created_by: gpt-5.6-sol
-updated_by: gpt-5.6-sol
+updated_by: claude-fable-5
 ---
 
 # soia-dev-open-design-ops — Open Design 原子操作层
@@ -233,6 +233,18 @@ python3 scripts/daemon_ctl.py stop
 `resolvedDir`（`GET /api/projects/:id` 会返回），为每个可渲染文件补一份
 `<file>.artifact.json`（照同目录已有产物的格式：`version/kind/title/entry/renderer/status/exports`），
 最后确认 `metadata_json.entryFile` 指向入口文件。**改 `app.sqlite` 前先备份，并且只在 App 未在写入时改；改完需要重启 App 才会重新读取。**
+
+#### 删除本地插件要删三处
+
+`DELETE /api/plugins/<id>` 这个路由**不存在**（返回 404）。桌面版跑复刻类
+workflow 会在项目内生成本地插件（`sourceKind: local`），删它必须同时清三处，
+少一处界面就还显示：
+
+1. 项目内的产物：`<data>/projects/<projectId>/plugin-source/<pluginId>/`
+2. 插件安装目录：`<data>/plugins/<pluginId>/`
+3. 注册记录：`app.sqlite` 的 `installed_plugins` 表（改前先备份）
+
+删完仍会显示是 daemon 的内存缓存，**重启 App 才消失**。
 
 ### 4. 一个产品只开一个设计项目
 
