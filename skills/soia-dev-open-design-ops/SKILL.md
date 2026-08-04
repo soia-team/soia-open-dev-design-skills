@@ -1,11 +1,11 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.0.2
+version: 1.1.0
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-07-27 10:47:17
+updated_at: 2026-08-03 17:20:00
 created_by: gpt-5.6-sol
-updated_by: gpt-5.6-sol
+updated_by: claude-fable-5
 ---
 
 # soia-dev-open-design-ops — Open Design 原子操作层
@@ -234,6 +234,18 @@ python3 scripts/daemon_ctl.py stop
 `<file>.artifact.json`（照同目录已有产物的格式：`version/kind/title/entry/renderer/status/exports`），
 最后确认 `metadata_json.entryFile` 指向入口文件。**改 `app.sqlite` 前先备份，并且只在 App 未在写入时改；改完需要重启 App 才会重新读取。**
 
+#### 删除本地插件要删三处
+
+`DELETE /api/plugins/<id>` 这个路由**不存在**（返回 404）。桌面版跑复刻类
+workflow 会在项目内生成本地插件（`sourceKind: local`），删它必须同时清三处，
+少一处界面就还显示：
+
+1. 项目内的产物：`<data>/projects/<projectId>/plugin-source/<pluginId>/`
+2. 插件安装目录：`<data>/plugins/<pluginId>/`
+3. 注册记录：`app.sqlite` 的 `installed_plugins` 表（改前先备份）
+
+删完仍会显示是 daemon 的内存缓存，**重启 App 才消失**。
+
 ### 4. 一个产品只开一个设计项目
 
 不要每做一个页面就新建一个 Open Design 项目——散成一堆之后，客户改任何一页都要先想「这是哪个项目」。
@@ -263,6 +275,21 @@ od run info  <runId> --daemon-url "$DAEMON_URL"
 需要特定模板就显式传 `--plugin <id>`（`od` 无 plugin list 子命令，用
 `GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
 不要因为文件 mtime 不动就取消。
+
+**同一项目里做第二个页面，必须先开新会话**：`run start` 不带 `--conversation`
+会复用项目的默认会话。上一轮的任务还在上下文里，agent 会把新 brief 当成
+「继续上一轮」，回一句「当前没有新的改动请求」就正常退出——
+status=succeeded、exit=0、`artifactCount: 0`、无 agentMessage，**一个文件都不写**。
+先建新会话再跑：
+
+```bash
+curl -s -X POST "$DAEMON_URL/api/projects/<projectId>/conversations" \
+  -H 'content-type: application/json' -d '{}'      # 返回 conversation.id
+od run start --project <projectId> --conversation <newId> --agent codex \
+  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
+```
+
+排查时看 `<data>/runs/<runId>/events.jsonl`：agent 的文字输出在 `data.type=="text"` 的事件里。
 
 **run 活不过 daemon 重启**：桌面版 daemon 掉线或重启后，进行中的 run 会连同记录一起消失
 （`run info` 返回 `NOT_FOUND`），且不留产物。所以长 run 期间不要重启 App；
