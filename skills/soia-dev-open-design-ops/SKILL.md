@@ -1,9 +1,9 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.2.0
+version: 1.3.0
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-08-04 18:40:00
+updated_at: 2026-08-05 10:00:00
 created_by: gpt-5.6-sol
 updated_by: claude-opus-5
 ---
@@ -292,6 +292,36 @@ workflow 会在项目内生成本地插件（`sourceKind: local`），删它必�
 `Remote MCP server URL`，本地 stdio server 加不进去；那个 Connectors 菜单列的是
 托管型连接器，本地 server 不会出现在里面。只能写配置文件或用 `claude mcp add`。
 用 `install_od_mcp.py` 处理各家格式差异。
+
+#### 实测矩阵（2026-08-05）
+
+**只写实际跑过的，未验证的一律标未验证。** 证据强度分三级：
+配置被解析 < 连接握手成功 < 工具调用返回真实数据。
+
+| Agent | 配置落点与键名 | 验证命令 | 结果 |
+| --- | --- | --- | --- |
+| Claude Code | `~/.claude.json` → `mcpServers` | `claude mcp list` | ✅ **工具调用**（本会话全程在用） |
+| codex | `~/.codex/config.toml` → `[mcp_servers.x]` + `[.env]` | `codex mcp list` / `get` / `exec` | ✅ **工具调用**：`mcp: open-design/list_projects started → (completed)`，返回 5 个项目 id |
+| opencode | `~/.config/opencode/opencode.json` → **`mcp`**（非 `mcpServers`） | `opencode mcp list` | ✅ **连接握手**：状态 `connected`；未取得工具调用输出 |
+| cursor | `~/.cursor/mcp.json` → `mcpServers` | 未验证 | ⬜ 格式已核对（与 Claude 同构），**未装未测** |
+| workbuddy / pi | 目录形态，落点未知 | — | ⬜ **格式未验证**，脚本拒绝自动写 |
+| qwen | `settings.json` 无 MCP 键 | — | ➖ 不适用（`shells/init-mcp.sh` 是改 Claude 配置的工具，非自身 MCP） |
+
+两条来自实测的要点：
+
+- **opencode 的 `env` 走 `/usr/bin/env` 前缀注入**（它的条目结构是 argv 数组 + `type`/`enabled`，
+  未见 env 字段）。这个方案已验证可连：`opencode mcp list` 显示 `✓ connected`，
+  且同列表中 `pencil` 显示 `✗ failed ENOENT`，证明该状态是真实探测而非静态回显。
+- **codex 的 `Status: enabled` 只是配置状态，不代表连得上。** 要确证必须让它真跑一次：
+
+  ```bash
+  codex exec --skip-git-repo-check "调用 open-design MCP 的 list_projects，原样列出项目 id"
+  ```
+
+  输出里出现 `mcp: open-design/list_projects (completed)` 才算数。
+
+回退：脚本写入前会备份成 `<配置文件>.bak-od`，或用各家自带命令移除
+（如 `codex mcp remove open-design`）。
 
 查当前装了没（Claude Code）：
 
