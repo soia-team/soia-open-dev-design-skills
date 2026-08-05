@@ -1,9 +1,9 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.3.0
+version: 1.3.1
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-08-05 10:00:00
+updated_at: 2026-08-05 11:20:00
 created_by: gpt-5.6-sol
 updated_by: claude-opus-5
 ---
@@ -304,7 +304,8 @@ workflow 会在项目内生成本地插件（`sourceKind: local`），删它必�
 | codex | `~/.codex/config.toml` → `[mcp_servers.x]` + `[.env]` | `codex mcp list` / `get` / `exec` | ✅ **工具调用**：`mcp: open-design/list_projects started → (completed)`，返回 5 个项目 id |
 | opencode | `~/.config/opencode/opencode.json` → **`mcp`**（非 `mcpServers`） | `opencode mcp list` | ✅ **连接握手**：状态 `connected`；未取得工具调用输出 |
 | cursor | `~/.cursor/mcp.json` → `mcpServers` | 未验证 | ⬜ 格式已核对（与 Claude 同构），**未装未测** |
-| workbuddy / pi | 目录形态，落点未知 | — | ⬜ **格式未验证**，脚本拒绝自动写 |
+| WorkBuddy | **UI 配置**（插件 → MCP → Add），非配置文件 | 客户端界面 | ⬜ 参数已核对，**脚本不适用**——见下 |
+| pi | 目录形态，落点未知 | — | ⬜ **格式未验证**，脚本拒绝自动写 |
 | qwen | `settings.json` 无 MCP 键 | — | ➖ 不适用（`shells/init-mcp.sh` 是改 Claude 配置的工具，非自身 MCP） |
 
 两条来自实测的要点：
@@ -322,6 +323,25 @@ workflow 会在项目内生成本地插件（`sourceKind: local`），删它必�
 
 回退：脚本写入前会备份成 `<配置文件>.bak-od`，或用各家自带命令移除
 （如 `codex mcp remove open-design`）。
+
+#### WorkBuddy：UI 配置，脚本不适用
+
+WorkBuddy 在客户端里配 MCP（插件 → MCP → Add），**没有可写的配置文件落点**，
+所以 `install_od_mcp.py` 对它只打印不写。界面要填的字段与对应值：
+
+| 界面字段 | 填什么 | 能不能写死 |
+| --- | --- | --- |
+| 启动命令 | `…/Open Design Helper.app/Contents/MacOS/Open Design Helper` | 可以（App 安装路径固定） |
+| 参数 1 | `…/app/prebundled/daemon/daemon-cli.mjs` | 可以 |
+| 参数 2 | `mcp` | 可以 |
+| `ELECTRON_RUN_AS_NODE` | `1` | **必填固定值**。缺了它 Helper 会以 GUI 模式启动，MCP 起不来 |
+| `OD_DATA_DIR` | `<APP_SUPPORT>/namespaces/<namespace>/data` | **不能写死**，`namespace` 随安装变 |
+| `OD_SIDECAR_IPC_PATH` | `/tmp/open-design/ipc/<namespace>/daemon.sock` | **不能写死**，同上 |
+| 环境变量传递 | 留空 | — |
+| **工作目录** | **留空** | OD MCP 通过 IPC socket 连 daemon，不依赖 cwd。实测佐证：codex 的 `cwd: -`、opencode 未设 cwd，两者均连通且 codex 完成了工具调用 |
+
+两个 `<namespace>` 用 `detect_route.py --json` 的 `routes.mcp.evidence.ipc_sockets`
+取，不要照抄本文里的 `release-stable`。
 
 查当前装了没（Claude Code）：
 
