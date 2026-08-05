@@ -1,11 +1,11 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.1.0
+version: 1.2.0
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-08-03 17:20:00
+updated_at: 2026-08-04 18:40:00
 created_by: gpt-5.6-sol
-updated_by: claude-fable-5
+updated_by: claude-opus-5
 ---
 
 # soia-dev-open-design-ops — Open Design 原子操作层
@@ -18,7 +18,9 @@ updated_by: claude-fable-5
 
 | 客户想要 | 技能会做 | 客户能看到 |
 |---|---|---|
-| 检查或启动 Open Design | 检查 Node、pnpm、checkout，控制本地 daemon 并探测 `/api/skills` | JSON 状态、缺失项、日志位置与修复命令 |
+| 检查或启动 Open Design | 先判定装的是哪条路线（CLI / 桌面版 / MCP），再按路线检查 | `route` 判定、缺失项、日志位置与修复命令 |
+| 给别的 agent 装 OD MCP | 按各家真实格式生成配置（键名与结构逐个实测过），默认只预览 | 每家的 diff、备份路径、验证命令 |
+| 把设计同步回代码仓 | 归档 OD 产物进 `docs/design/`，并对比稿与实现的令牌漂移 | 文件清单、逐条漂移、裸色值与红线上下文 |
 | 接入设计系统 | 区分正式三件套与 `DESIGN.md`-only 兼容路径，再用上游 CLI/App 接入 | 设计系统 id、来源、验证结果 |
 | 查询能力目录 | 分开查询 functional skills 与 rendering templates | 名称、说明、`od.mode`/category 清单 |
 | 渲染和导出 | 按上游稳定入口驱动 App/CLI，导出 HTML、PDF、PPTX 或 MP4 | 产物路径、格式语义、可打开性检查 |
@@ -57,22 +59,20 @@ npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-open-
 **不要一上来就 clone 或 install。** 多数客户机器上 Open Design 已经在了（桌面版 App
 或既有 checkout），此时一行安装命令都不该跑。按下面的顺序判断，命中即停：
 
-1. **桌面版 App 在跑？**（最常见）
+1. **一条命令判定全部三条路线**（桌面版 / CLI checkout / MCP）：
 
    ```bash
-   python3 scripts/desktop_ctl.py detect
+   python3 scripts/detect_route.py
    ```
 
-   返回 `daemon_api_port` 即可直接用，**到此为止**——不需要 checkout、不需要 Node/pnpm，
-   走本节后面的「桌面版 App」小节即可。
+   `route` 不是 `none` 就说明已经装好了，**到此为止，一行安装命令都不要跑**。
+   `desktop` / `desktop-mcp` 不需要 checkout、不需要 Node/pnpm，直接走
+   「环境与 daemon」的第 3、4 小节。
 
-2. **有本地 checkout？** `OPEN_DESIGN_HOME` 指向的目录存在即可用现成的，只是 daemon 没起：
+2. **`route=none` 时**再看细分证据：`routes.cli.blockers` 说明 CLI 路线缺什么，
+   `routes.desktop.evidence.app_bundle` 说明 App 装没装。
 
-   ```bash
-   python3 scripts/check_env.py
-   ```
-
-3. **两者都没有** → **先问客户，拿到明确同意再装**，并让客户自己选路线：
+3. **确实两者都没有** → **先问客户，拿到明确同意再装**，并让客户自己选路线：
    桌面版 App（无需 Node/pnpm，日常使用推荐）还是源码 checkout（要参与 upstream 开发时才需要）。
    客户没答复之前，停止需要 daemon 的 workflow 并说明缺什么，不要替客户决定。
 
@@ -130,9 +130,27 @@ daemon 后台日志与 PID 状态写入用户 state 目录；可用 `OPEN_DESIGN
 
 ## 环境与 daemon
 
-> **入口判断先做一次**：客户装了桌面版 App 时，本节 1–2 的 CLI daemon 路线基本不适用，
-> 直接跳到「3. 桌面版 App」。判断只要一条命令：
-> `python3 scripts/desktop_ctl.py detect` 返回 `daemon_api_port` 即为桌面版路线。
+> **入口判断先做一次，且必须先做**：本机可能装了三条彼此独立的路线——CLI 源码
+> checkout、桌面版 App、MCP。装了哪条完全取决于客户怎么安装。
+>
+> ```bash
+> python3 scripts/detect_route.py          # 人读
+> python3 scripts/detect_route.py --json   # 机读，供上层分流
+> ```
+>
+> 输出 `route` 为 `cli` / `desktop` / `desktop-mcp` / `none`，据此选择本节的对应小节：
+>
+> | route | 用哪节 | 不要做什么 |
+> | --- | --- | --- |
+> | `cli` | 1–2 | — |
+> | `desktop` | 3 | **不要跑 `check_env.py` / `daemon_ctl.py`** |
+> | `desktop-mcp` | 3 + 4 | 同上；优先走 4，能力最全 |
+> | `none` | 按 `suggestions` 修复 | 不要硬跑任何一节 |
+>
+> **这一步不能省。** 只装了桌面版的机器上跑 `check_env.py` 必然返回
+> `status=error`（缺 `node_24` / `pnpm_10_33` / `daemon_7456_unreachable`），
+> 那是「没装 CLI 路线」的正确结论，**不是环境坏了**。把它当故障会让整条流程
+> 停在一个根本不需要的前置上。
 
 ### 1. 检测环境（CLI / 源码 checkout 路线）
 
@@ -246,7 +264,97 @@ workflow 会在项目内生成本地插件（`sourceKind: local`），删它必�
 
 删完仍会显示是 daemon 的内存缓存，**重启 App 才消失**。
 
-### 4. 一个产品只开一个设计项目
+### 4. MCP 路线（能力最全，派 run 的唯一通路）
+
+桌面版把自己暴露成一个 MCP server。**这是唯一能「派活给 Open Design 让它自己
+生成、同时让客户在界面里全程看到」的通路**——HTTP API 只能读写文件，派不了 run。
+
+#### 配置形态
+
+不走网络端口，而是用 Electron Helper 以 Node 模式跑打包内的 `daemon-cli.mjs mcp`：
+
+```json
+"open-design": {
+  "command": "/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper",
+  "args": ["/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs", "mcp"],
+  "env": {
+    "OD_DATA_DIR": "<APP_SUPPORT>/namespaces/<namespace>/data",
+    "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/<namespace>/daemon.sock",
+    "ELECTRON_RUN_AS_NODE": "1"
+  }
+}
+```
+
+`OD_SIDECAR_IPC_PATH` 正是「`od://` scheme 只在 MCP sidecar 上下文里可用」的原因。
+`namespace` 要从 `detect_route.py` 的输出取，不要写死 `release-stable`。
+
+**装 MCP 不能靠客户端 UI。** Claude 桌面版的 Add custom connector 只接受
+`Remote MCP server URL`，本地 stdio server 加不进去；那个 Connectors 菜单列的是
+托管型连接器，本地 server 不会出现在里面。只能写配置文件或用 `claude mcp add`。
+用 `install_od_mcp.py` 处理各家格式差异。
+
+查当前装了没（Claude Code）：
+
+```bash
+claude mcp list
+```
+
+#### 派 run 的契约
+
+```
+start_run(project, prompt)  → 立刻返回 runId，OD 自己 spawn agent 去做
+get_run(runId)              → queued|running|succeeded|failed|canceled
+```
+
+三条实测教训：
+
+1. **prompt 里必须内联 `tokens.css` 全文。** run 内的 agent 读
+   `design-systems/<id>/` 会拿到 404，它看不到挂载的设计系统文件。只在 prompt 里
+   写「请遵守 Warm Editorial」是不够的——agent 只能靠猜或反推。可行的替代是让它
+   参考项目里一个已经正确应用了该系统的页面。
+2. **`toolBundle.mcpServers` 默认是空的**，run 内的 agent 只有 Bash/Read/Write，
+   没有任何 MCP 工具。要给它加，得在 OD 界面「集成 → 外部 MCP 服务器」配置
+   （落在 `.od/mcp-config.json`）。这个方向和上面那个 MCP 是**反的**：那里 OD 是
+   客户端，这里 OD 是服务端，别混。
+3. **实时进度不在 API 里，在磁盘上。** `get_run` 只给状态，看不到 agent 在干什么。
+   要「打印」就 tail 事件流：
+
+   ```bash
+   tail -f "<data>/runs/<runId>/events.jsonl"
+   ```
+
+   事件形如 `{"id","event","data","timestamp"}`；`event` 为 `pipeline_stage_started`
+   / `pipeline_stage_completed` / `agent`（`data.type` 再分 `tool_use` / `tool_result`
+   / `text`）/ `diagnostic` / `error`。这是四种官方入口都没提供的能力。
+
+一次 run 通常 5–30 分钟。**文件 mtime 长时间不变是 agent 在思考，不是卡死**，
+不要因此 `cancel_run`，更不要改用 `write_file` 自己把设计写了——那样就绕过了
+OD 的生成管线，产出质量和「派给 OD」不是一回事。
+
+### 5. 把设计同步回客户代码仓
+
+桌面版的数据目录随时可能因重装、换机或 daemon 故障而看不到，**任何要长期留存的
+设计资产都必须有一份在客户自己的 git 仓库里**。更要紧的是：设计稿与生产实现会
+各自漂移而没人发现——稿里 10px、实现里 13px，两边单看都不像错。
+
+```bash
+# 归档：OD 的 pages/ specs/ index.html → <repo>/docs/design/（默认预览）
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --archive
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --archive --apply
+
+# 核对：稿 vs 实现的 :root 令牌漂移、:root 外裸色值、可选红线
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --check \
+  --design pages/<page>.html --impl <path-in-repo> [--redlines <file>]
+```
+
+`--check` 有漂移即非零退出，可挂进 CI。
+
+**红线扫描必须剥离注释，且只报上下文不下结论。** 写得好的代码库会在注释里写明
+纪律（「绝不做完成率排名」「不显示倒计时」），不剥离注释就会把**遵守的证据**
+当成违规报出来——实测某单文件应用 5 类命中里 4 类是注释；剥离后剩 2 类，其中
+一类还是视频文件名。所以扫描器输出上下文供人工判定，不直接判违规。
+
+### 6. 一个产品只开一个设计项目
 
 不要每做一个页面就新建一个 Open Design 项目——散成一堆之后，客户改任何一页都要先想「这是哪个项目」。
 
@@ -311,6 +419,61 @@ od run start --project <projectId> --conversation <newId> --agent codex \
 - `manifest.json` 使用 `od-design-system-project/v1`，folder slug 与 manifest id 一致。
 - `DESIGN.md` 是给 agent 的 canonical design prose；`tokens.css` 是 canonical compiled semantic tokens。
 - 新系统不得把 `DESIGN.md`-only 当 authoring target。rich package 的可选文件与 token 约束以 upstream `docs/design-systems.md`、`design-systems/_schema/AGENTS.md` 和 TypeScript schema 为准。
+
+### 包一致性校验（用任何设计系统之前先做）
+
+**内置包内部会自相矛盾，不能只读 `DESIGN.md` 就动手。** 以 `warm-editorial` 为例，
+实测有五处叙述与可执行文件冲突：
+
+| DESIGN.md / USAGE.md 说 | 可执行文件实际 |
+| --- | --- |
+| accent `#C0512F` | `tokens.css` 是 `#9b5b32` |
+| 次强调 forest `#2F5B4F` | `tokens.css` 里**不存在这个令牌** |
+| 卡片无阴影 | `components.html` 的 `.panel` 带 `--elev-raised` |
+| 输入框只要下划线 | `input` 有 1px 边框 + `--radius-sm` 圆角 |
+| 禁止渐变 | `.page` 是 135° 三色 `linear-gradient` |
+
+**优先级（冲突时照此裁决）**：
+
+```
+tokens.css  >  components.html  >  DESIGN.md / USAGE.md
+```
+
+理由是 `USAGE.md` 自己规定的读取顺序就把 `tokens.css` 定位为「粘进第一个
+`<style>` 块」的执行真源，`components.html` 定位为「精确选择器与状态」，
+`DESIGN.md` 只是视觉意图散文。散文和令牌打架时，按令牌走。
+
+内置包在 App 里，不在项目目录：
+
+```bash
+ls "/Applications/Open Design.app/Contents/Resources/open-design/design-systems/<id>/"
+# DESIGN.md  tokens.css  components.html  components.manifest.json  USAGE.md  …
+```
+
+用 HTTP API 拿元信息和 `DESIGN.md` 正文（`.body` 字段）：
+
+```bash
+curl -s "http://127.0.0.1:<port>/api/design-systems"                    # 列全部
+curl -s "http://127.0.0.1:<port>/api/design-systems/<id>?include=files" # 含 body
+```
+
+挂到项目：
+
+```bash
+curl -s -X PATCH "http://127.0.0.1:<port>/api/projects/<projectId>" \
+  -H 'content-type: application/json' -d '{"designSystemId":"<id>"}'
+```
+
+挂载成功后 `start_run` 的返回里会带 `designSystemId` 与
+`designSystemSelectionSource: "project"`，以此确认真的生效。
+
+另外两条硬约束，来自 `USAGE.md` 且必须转达给任何生成方：
+
+- `:root` 令牌块之外**不许出现裸 hex / rgb**，全部走 `var()`。注意
+  `components.html` 自己就违反了这条（`.page` 的渐变写的是裸 hex），照抄会把问题
+  带进产物——换成等值 token 即可。
+- 只用 `components.manifest.json` 里 `present: true` 的组件组。`present: false`
+  的（如 `warm-editorial` 的 icons、keyboard）表示这套系统**没有**该组件，不要发明。
 
 ### 用户项目的 `DESIGN.md`-only 兼容接入
 

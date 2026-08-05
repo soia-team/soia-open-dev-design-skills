@@ -3,11 +3,11 @@ name: soia-dev-design-explorer
 description: 基于 Open Design（经 soia-dev-open-design-ops）做高保真 HTML 原型、设计变体、幻灯片、动画探索与设计评审；要求用户品牌输入、五分类输出落点与可复现验证。
 dependencies:
   hard: [soia-dev-open-design-ops]
-version: 1.3.1
+version: 1.4.0
 created_at: 2026-07-07 14:44:10
-updated_at: 2026-07-22 20:42:25
+updated_at: 2026-08-04 18:45:00
 created_by: claude opus 4.6
-updated_by: gpt-5.6-luna
+updated_by: claude-opus-5
 ---
 
 # soia-dev-design-explorer
@@ -121,21 +121,30 @@ Open Design 的 checkout、Node/pnpm 前置、私有配置、daemon 端口及安
 
 ### Step 3. 调用 Open Design 原子层
 
-先使用 `soia-dev-open-design-ops` 检查环境和 daemon；不得以进程存活替代目录可用性检查：
+**先判定路线，再选检查命令。** 本机可能装的是 CLI 源码 checkout、桌面版 App
+或 MCP，三条互相独立；不判定就直接跑 CLI 路线的检查会得出错误结论：
 
 ```bash
 # 从已安装 skill 调用（任意工作目录）
-python3 ~/.agents/skills/soia-dev-open-design-ops/scripts/check_env.py
-python3 ~/.agents/skills/soia-dev-open-design-ops/scripts/daemon_ctl.py status
-python3 ~/.agents/skills/soia-dev-open-design-ops/scripts/daemon_ctl.py health
+python3 ~/.agents/skills/soia-dev-open-design-ops/scripts/detect_route.py --json
 
 # 在 soia-open-dev-design-skills 仓库根目录开发时
-python3 skills/soia-dev-open-design-ops/scripts/check_env.py
-python3 skills/soia-dev-open-design-ops/scripts/daemon_ctl.py status
-python3 skills/soia-dev-open-design-ops/scripts/daemon_ctl.py health
+python3 skills/soia-dev-open-design-ops/scripts/detect_route.py --json
 ```
 
-`check_env.py` 必须返回 `status=ok`；`health` 必须以 `/api/skills` 返回数组为证据。缺失 checkout、Node/pnpm 或 daemon 不可用时停止，并按原子层给出的建议修复。
+按返回的 `route` 分流：
+
+| route | 接着做什么 | 判定通过的证据 |
+|---|---|---|
+| `cli` | 跑 `check_env.py` + `daemon_ctl.py status/health` | `status=ok`，且 `health` 以 `/api/skills` 返回数组为准 |
+| `desktop` | 跑 `desktop_ctl.py detect` 拿当前端口 | 返回 `daemon_api_port`；端口每次启动都变，不要缓存 |
+| `desktop-mcp` | 同上，且优先用 MCP（`start_run` 能派活给 OD，HTTP API 不能） | `start_run` 返回 `runId` |
+| `none` | 停止，按 `suggestions` 修复后重来 | — |
+
+**不要在 `desktop` / `desktop-mcp` 路线上跑 `check_env.py`。** 它必然返回
+`status=error`（缺 `node_24` / `pnpm_10_33` / `daemon_7456_unreachable`），
+那是「本机没装 CLI 路线」的正确结论，不是故障。把它当故障会让整条设计流程
+停在一个根本不需要的前置上——这是实际发生过的事。
 
 接入设计规则时，先检查用户提供的项目是否有正式三件套；没有时将用户项目的 `DESIGN.md` 作为兼容输入，并由原子层的 `design-systems import-local` 接入。查询 functional skills 用 `list_skills.py`；查询 rendering templates 用 Open Design App 的 “Start from” 或 `GET /api/design-templates`。两种目录不得混为一谈。
 
@@ -161,6 +170,24 @@ python3 skills/soia-dev-open-design-ops/scripts/daemon_ctl.py health
 - review 先给结论和问题分级，再给修复建议；
 - 所有品牌选择以用户资产或可引用的公开品牌资料为证据；
 - 通过 Open Design App/CLI 生成、继续会话或导出时，遵从原子层的稳定入口；不构造未文档化的 API payload。
+
+#### 派 run 给 Open Design 时（`desktop-mcp` 路线）
+
+`start_run` 让 Open Design 自己 spawn agent 去生成，客户能在界面里全程看到过程。
+这条路的产出质量来自 OD 的生成管线，**不要因为等得久就改用 `write_file` 自己写**，
+那是两回事。三条硬约束：
+
+1. **prompt 里必须内联 `tokens.css` 全文**。run 内的 agent 读
+   `design-systems/<id>/` 会拿到 404，只写「请遵守某设计系统」它做不到。
+   替代方案是指明项目里一个已正确应用该系统的页面供它参考。
+2. **同时把设计系统包的已知矛盾一起写进 prompt**，并指明以 `tokens.css` +
+   `components.html` 为准。否则 agent 会照 `DESIGN.md` 的散文走偏
+   （见原子层「包一致性校验」）。
+3. **实时进度 tail `<data>/runs/<runId>/events.jsonl`**，`get_run` 只给状态。
+   文件 mtime 长时间不动是 agent 在思考，不是卡死，不要 `cancel_run`。
+
+run 返回后**必须独立验收**，不能只信它的自检回执：令牌纯度（`:root` 外零裸值）、
+只用了清单内 `present: true` 的组件、产品红线扫描、关键 viewport 无横向溢出。
 
 ### Step 6. 验证
 
