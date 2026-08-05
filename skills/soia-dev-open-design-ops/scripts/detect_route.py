@@ -37,16 +37,22 @@ HELPER = (
 DAEMON_CLI = f"{APP_BUNDLE}/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs"
 IPC_ROOT = "/tmp/open-design/ipc"
 
-# 各家 agent 的 MCP 配置落点。格式不同，这里只判断「文件在不在、提没提 open-design」，
-# 真正的读写留给 install_od_mcp.py。
-AGENT_CONFIGS: tuple[tuple[str, str, str], ...] = (
-    ("claude-code", "~/.claude.json", "json"),
-    ("codex", "~/.codex/config.toml", "toml"),
-    ("cursor", "~/.cursor/mcp.json", "json"),
-    ("opencode", "~/.config/opencode/opencode.json", "json"),
-    ("qwen", "~/.qwen/settings.json", "json"),
-    ("workbuddy", "~/.workbuddy", "unknown"),
-    ("pi", "~/.pi", "unknown"),
+# 各家 agent 的 MCP 落点。**键名与条目结构逐个实测过，不要按 Claude 的格式套**：
+#   json-claude   mcpServers.<name> = {command: str, args: [...], env: {...}}
+#   json-opencode mcp.<name>        = {command: [argv...], type: "local", enabled: bool}
+#                 —— command 是 argv 数组而非字符串，且未见 env 字段
+#   toml-codex    [mcp_servers.<name>] command/args + [mcp_servers.<name>.env]
+#   unknown       结构没验证过，只报告、不自动写
+#
+# qwen 的 ~/.qwen/settings.json 里没有任何 MCP 键；~/.qwen/shells/init-mcp.sh 是个
+# 改 ~/.claude/settings.json 的管理脚本，不是 qwen 自己的 MCP 配置，故不列为目标。
+AGENT_CONFIGS: tuple[tuple[str, str, str, str], ...] = (
+    ("claude-code", "~/.claude.json", "json-claude", "mcpServers"),
+    ("codex", "~/.codex/config.toml", "toml-codex", "mcp_servers"),
+    ("cursor", "~/.cursor/mcp.json", "json-claude", "mcpServers"),
+    ("opencode", "~/.config/opencode/opencode.json", "json-opencode", "mcp"),
+    ("workbuddy", "~/.workbuddy", "unknown", ""),
+    ("pi", "~/.pi", "unknown", ""),
 )
 
 
@@ -89,8 +95,12 @@ def probe_desktop() -> dict[str, Any]:
     }
 
 
-def _json_has_open_design(path: str) -> bool | None:
-    """在 JSON 配置的 MCP 段里精确查 open-design；解析失败返回 None。"""
+def _json_has_open_design(path: str, mcp_key: str) -> bool | None:
+    """在 JSON 配置的 MCP 段里精确查 open-design；解析失败返回 None。
+
+    mcp_key 因 agent 而异（Claude/Cursor 是 mcpServers，opencode 是 mcp），
+    传错键名会把「未配」误判成「已配」或反之。
+    """
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             data = json.load(handle)
@@ -103,8 +113,8 @@ def _json_has_open_design(path: str) -> bool | None:
         if not isinstance(node, dict):
             return
         for key, value in node.items():
-            # 只认 MCP 注册表本身，别的地方出现同名字符串一律不算
-            if key in ("mcpServers", "mcp_servers") and isinstance(value, dict):
+            # 只认该 agent 自己的 MCP 注册表，别处出现同名字符串一律不算
+            if key == mcp_key and isinstance(value, dict):
                 if any("open-design" in name for name in value):
                     found = True
             walk(value)
@@ -148,14 +158,14 @@ def probe_mcp() -> dict[str, Any]:
                 sockets.append(sock)
 
     agents: dict[str, dict[str, Any]] = {}
-    for name, raw_path, fmt in AGENT_CONFIGS:
+    for name, raw_path, fmt, mcp_key in AGENT_CONFIGS:
         path = os.path.expanduser(raw_path)
         exists = os.path.exists(path)
         configured: bool | None = False
         if exists and os.path.isfile(path):
-            if fmt == "json":
-                configured = _json_has_open_design(path)
-            elif fmt == "toml":
+            if fmt.startswith("json"):
+                configured = _json_has_open_design(path, mcp_key)
+            elif fmt.startswith("toml"):
                 configured = _toml_has_open_design(path)
             else:
                 configured = None  # 格式没验过，不猜
@@ -164,6 +174,7 @@ def probe_mcp() -> dict[str, Any]:
         agents[name] = {
             "config": raw_path,
             "format": fmt,
+            "mcp_key": mcp_key,
             "installed": exists,
             # None = 无法判定，不要当成「未配」去覆盖客户配置
             "has_open_design": configured,
