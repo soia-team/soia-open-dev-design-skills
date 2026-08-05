@@ -106,7 +106,7 @@ def load_private_env(required: bool = False) -> Path | None:
     if not path.is_file():
         if required:
             raise SystemExit(
-                "Missing private config. Copy config.example.yml to the documented "
+                "Missing private config. Copy assets/config.example.yml to the documented "
                 "skill config directory or set SOIA_DEV_OPEN_DESIGN_OPS_CONFIG_FILE."
             )
         return None
