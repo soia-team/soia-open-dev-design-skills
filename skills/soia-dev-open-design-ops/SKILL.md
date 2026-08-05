@@ -18,7 +18,9 @@ updated_by: claude-opus-5
 
 | 客户想要 | 技能会做 | 客户能看到 |
 |---|---|---|
-| 检查或启动 Open Design | 检查 Node、pnpm、checkout，控制本地 daemon 并探测 `/api/skills` | JSON 状态、缺失项、日志位置与修复命令 |
+| 检查或启动 Open Design | 先判定装的是哪条路线（CLI / 桌面版 / MCP），再按路线检查 | `route` 判定、缺失项、日志位置与修复命令 |
+| 给别的 agent 装 OD MCP | 按各家真实格式生成配置（键名与结构逐个实测过），默认只预览 | 每家的 diff、备份路径、验证命令 |
+| 把设计同步回代码仓 | 归档 OD 产物进 `docs/design/`，并对比稿与实现的令牌漂移 | 文件清单、逐条漂移、裸色值与红线上下文 |
 | 接入设计系统 | 区分正式三件套与 `DESIGN.md`-only 兼容路径，再用上游 CLI/App 接入 | 设计系统 id、来源、验证结果 |
 | 查询能力目录 | 分开查询 functional skills 与 rendering templates | 名称、说明、`od.mode`/category 清单 |
 | 渲染和导出 | 按上游稳定入口驱动 App/CLI，导出 HTML、PDF、PPTX 或 MP4 | 产物路径、格式语义、可打开性检查 |
@@ -329,7 +331,30 @@ get_run(runId)              → queued|running|succeeded|failed|canceled
 不要因此 `cancel_run`，更不要改用 `write_file` 自己把设计写了——那样就绕过了
 OD 的生成管线，产出质量和「派给 OD」不是一回事。
 
-### 5. 一个产品只开一个设计项目
+### 5. 把设计同步回客户代码仓
+
+桌面版的数据目录随时可能因重装、换机或 daemon 故障而看不到，**任何要长期留存的
+设计资产都必须有一份在客户自己的 git 仓库里**。更要紧的是：设计稿与生产实现会
+各自漂移而没人发现——稿里 10px、实现里 13px，两边单看都不像错。
+
+```bash
+# 归档：OD 的 pages/ specs/ index.html → <repo>/docs/design/（默认预览）
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --archive
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --archive --apply
+
+# 核对：稿 vs 实现的 :root 令牌漂移、:root 外裸色值、可选红线
+python3 scripts/od_sync.py --project <id> --repo <repo-root> --check \
+  --design pages/<page>.html --impl <path-in-repo> [--redlines <file>]
+```
+
+`--check` 有漂移即非零退出，可挂进 CI。
+
+**红线扫描必须剥离注释，且只报上下文不下结论。** 写得好的代码库会在注释里写明
+纪律（「绝不做完成率排名」「不显示倒计时」），不剥离注释就会把**遵守的证据**
+当成违规报出来——实测某单文件应用 5 类命中里 4 类是注释；剥离后剩 2 类，其中
+一类还是视频文件名。所以扫描器输出上下文供人工判定，不直接判违规。
+
+### 6. 一个产品只开一个设计项目
 
 不要每做一个页面就新建一个 Open Design 项目——散成一堆之后，客户改任何一页都要先想「这是哪个项目」。
 
