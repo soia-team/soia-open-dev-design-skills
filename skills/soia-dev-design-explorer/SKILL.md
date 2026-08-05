@@ -3,9 +3,9 @@ name: soia-dev-design-explorer
 description: 基于 Open Design（经 soia-dev-open-design-ops）做高保真 HTML 原型、设计变体、幻灯片、动画探索与设计评审；要求用户品牌输入、五分类输出落点与可复现验证。
 dependencies:
   hard: [soia-dev-open-design-ops]
-version: 1.4.0
+version: 1.4.1
 created_at: 2026-07-07 14:44:10
-updated_at: 2026-08-04 18:45:00
+updated_at: 2026-08-05 13:30:00
 created_by: claude opus 4.6
 updated_by: claude-opus-5
 ---

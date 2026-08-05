@@ -1,11 +1,11 @@
 ---
 name: soia-dev-archify-diagrams
 description: 用 Archify 将架构、数据流和流程说明生成可维护 JSON 图表及 PNG 预览。触发：「用 Archify 画」「Archify 架构图」「Archify 时序图」
-version: 1.1.2
+version: 1.1.3
 created_at: 2026-07-09 07:45:34
-updated_at: 2026-07-23 07:16:14
+updated_at: 2026-08-05 13:30:00
 created_by: claude opus 4.6
-updated_by: gpt-5.6-luna
+updated_by: claude-opus-5
 ---
 
 # soia-dev-archify-diagrams

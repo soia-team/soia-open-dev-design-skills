@@ -1,11 +1,11 @@
 ---
 name: soia-dev-design-draft-prd
 description: 起草互联网通用 PRD、产品需求文档与用户故事；适用于一句话需求补全、功能范围和验收标准梳理。
-version: 2.0.0
+version: 2.0.1
 created_at: 2026-07-23 00:02:50
-updated_at: 2026-07-25 13:03:46
+updated_at: 2026-08-05 13:30:00
 created_by: gpt-5
-updated_by: claude opus 5
+updated_by: claude-opus-5
 ---
 
 # soia-dev-design-draft-prd
