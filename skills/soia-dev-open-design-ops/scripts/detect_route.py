@@ -44,7 +44,8 @@ IPC_ROOT = "/tmp/open-design/ipc"
 #   toml-codex    [mcp_servers.<name>] command/args + [mcp_servers.<name>.env]
 #   unknown       结构没验证过，只报告、不自动写
 #
-# qwen 的 ~/.qwen/settings.json 里没有任何 MCP 键；~/.qwen/shells/init-mcp.sh 是个
+# pi (v0.83.0) 无 mcp 子命令、settings.json 无 MCP 字段，扩展机制是 package 而非
+# MCP server，故同样不列为目标。qwen 的 ~/.qwen/settings.json 里没有任何 MCP 键；~/.qwen/shells/init-mcp.sh 是个
 # 改 ~/.claude/settings.json 的管理脚本，不是 qwen 自己的 MCP 配置，故不列为目标。
 AGENT_CONFIGS: tuple[tuple[str, str, str, str], ...] = (
     ("claude-code", "~/.claude.json", "json-claude", "mcpServers"),
@@ -52,7 +53,6 @@ AGENT_CONFIGS: tuple[tuple[str, str, str, str], ...] = (
     ("cursor", "~/.cursor/mcp.json", "json-claude", "mcpServers"),
     ("opencode", "~/.config/opencode/opencode.json", "json-opencode", "mcp"),
     ("workbuddy", "~/.workbuddy", "unknown", ""),
-    ("pi", "~/.pi", "unknown", ""),
 )
 
 

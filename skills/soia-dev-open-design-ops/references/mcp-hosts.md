@@ -38,7 +38,7 @@
 | opencode | `~/.config/opencode/opencode.json` → **`mcp`**（非 `mcpServers`） | `opencode mcp list` | ✅ **连接握手**：状态 `connected`；未取得工具调用输出 |
 | cursor | `~/.cursor/mcp.json` → `mcpServers` | 未验证 | ⬜ 格式已核对（与 Claude 同构），**未装未测** |
 | WorkBuddy | **UI 配置**（插件 → MCP → Add），非配置文件 | 客户端界面 | ⬜ 参数已核对，**脚本不适用**——见下 |
-| pi | 目录形态，落点未知 | — | ⬜ **格式未验证**，脚本拒绝自动写 |
+| pi | `~/.pi/agent/settings.json` | `pi --help` / `pi list` | ➖ **不支持 MCP**，见下 |
 | qwen | `settings.json` 无 MCP 键 | — | ➖ 不适用（`shells/init-mcp.sh` 是改 Claude 配置的工具，非自身 MCP） |
 
 两条来自实测的要点：
@@ -56,6 +56,19 @@
 
 回退：脚本写入前会备份成 `<配置文件>.bak-od`，或用各家自带命令移除
 （如 `codex mcp remove open-design`）。
+
+#### pi：不支持 MCP（2026-08-05 实测 v0.83.0）
+
+之前误标为「格式未验证」。实际是**它没有 MCP 这个概念**，三条证据：
+
+- `pi --help` 的子命令只有 `install / remove / uninstall / update / list / config / auth`，**没有 `mcp`**
+- `~/.pi/agent/settings.json` 顶层键只有 `defaultProvider` / `defaultModel` /
+  `lastChangelogVersion` / `theme` / `defaultThinkingLevel`，**没有任何 MCP 字段**
+- 它的扩展机制是 `pi install npm:@foo/bar` / `git:` / `https:` / `./local` 的
+  **package**，不是 MCP server
+
+所以 pi 归类为**不适用**，与 qwen 同类，`install_od_mcp.py` 不应把它列为待安装目标。
+若 pi 后续加入 MCP 支持，重新实测再改这一条。
 
 #### WorkBuddy：UI 配置，脚本不适用
 
