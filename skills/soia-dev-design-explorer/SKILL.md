@@ -65,6 +65,8 @@ Open Design 的 checkout、Node/pnpm 前置、私有配置、daemon 端口及安
 
 品牌规范不是 skill 依赖。客户可提供 brand guideline、logo、色板、字体、截图和文案规则；未提供时明确记录缺口。
 
+**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
+
 ### 日志与完成回执
 
 ```markdown

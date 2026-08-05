@@ -91,6 +91,8 @@ pnpm install
 Node/pnpm/checkout 任一缺失时，停止需要 daemon 的 workflow，并返回补齐命令——
 **返回命令供客户执行，不代客户执行**。
 
+**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
+
 ### 私有配置
 
 复制 `assets/config.example.yml` 到：

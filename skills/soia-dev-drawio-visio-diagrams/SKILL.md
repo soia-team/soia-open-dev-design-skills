@@ -72,6 +72,8 @@ claude plugin install soia-dev-design@soia
 npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-drawio-visio-diagrams -y
 ```
 
+**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
+
 ### 私密信息与中间数据
 
 - VSDX、`.drawio`、预览图和分析结果可能包含企业架构、账号名或业务数据，均按客户私有文件处理。

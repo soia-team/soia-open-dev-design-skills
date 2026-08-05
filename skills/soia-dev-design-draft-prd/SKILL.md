@@ -50,6 +50,8 @@ npx skills add soia-team/soia-open-dev-design-skills -g -a '*' -s soia-dev-desig
 
 ## 工作流程
 
+**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
+
 ### 1. 建立需求边界
 
 复述已知需求，并区分看到的事实、合理推断和未验证假设。确认交付的是草稿而不是立项、排期或研发承诺；没有客户授权时，不代表客户作出商业、合规或发布决定。

@@ -83,6 +83,8 @@ OFFICECLI_BIN=<path-to-officecli>
 
 完整选择表见 [references/tool-routing.md](references/tool-routing.md)。
 
+**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
+
 ### 日志与完成回执
 
 ```markdown
