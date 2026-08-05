@@ -1,9 +1,9 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.4.0
+version: 1.4.1
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-08-05 12:10:00
+updated_at: 2026-08-05 13:30:00
 created_by: gpt-5.6-sol
 updated_by: claude-opus-5
 ---

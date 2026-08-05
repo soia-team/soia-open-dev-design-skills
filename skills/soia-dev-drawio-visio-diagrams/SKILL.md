@@ -1,11 +1,11 @@
 ---
 name: soia-dev-drawio-visio-diagrams
 description: 将 Visio VSDX 安全转换、盘点和受控升级为可编辑 draw.io 图表。触发：「VSDX 转 draw.io」「Visio 图表升级」「draw.io 图表盘点」
-version: 1.0.3
+version: 1.0.4
 created_at: 2026-07-21 10:01:24
-updated_at: 2026-07-23 07:16:14
+updated_at: 2026-08-05 13:30:00
 created_by: gpt-5.6-sol
-updated_by: gpt-5.6-luna
+updated_by: claude-opus-5
 ---
 
 # Draw.io / Visio 图表工程
