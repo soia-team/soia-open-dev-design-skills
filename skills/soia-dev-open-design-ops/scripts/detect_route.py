@@ -44,14 +44,21 @@ IPC_ROOT = "/tmp/open-design/ipc"
 #   toml-codex    [mcp_servers.<name>] command/args + [mcp_servers.<name>.env]
 #   unknown       结构没验证过，只报告、不自动写
 #
-# pi (v0.83.0) 无 mcp 子命令、settings.json 无 MCP 字段，扩展机制是 package 而非
-# MCP server，故同样不列为目标。qwen 的 ~/.qwen/settings.json 里没有任何 MCP 键；~/.qwen/shells/init-mcp.sh 是个
+# pi (v0.83.0) 核心不带 MCP：无 mcp 子命令、settings.json 无 MCP 字段。但第三方扩展
+# `pi-mcp-adapter`（2026-08-05 实测 v2.20.1）能补上，装完后 ~/.pi/agent/mcp.json 就是
+# json-claude 同构（mcpServers.<name> = {command, args, env}），可以直接复用这条判定。
+# **不要用它的 imports 模式**（把其它宿主全部 MCP server 借过来）——实测会把 codex
+# 里 enabled=false 的 computer-use、cursor/opencode 命名冲突的 pencil 之类无关配置也
+# 带进来导致连接失败；应该只在 mcpServers 里直接定义 open-design 这一条，imports 留空。
+# 见 references/mcp-hosts.md「pi」一节。
+# qwen 的 ~/.qwen/settings.json 里没有任何 MCP 键；~/.qwen/shells/init-mcp.sh 是个
 # 改 ~/.claude/settings.json 的管理脚本，不是 qwen 自己的 MCP 配置，故不列为目标。
 AGENT_CONFIGS: tuple[tuple[str, str, str, str], ...] = (
     ("claude-code", "~/.claude.json", "json-claude", "mcpServers"),
     ("codex", "~/.codex/config.toml", "toml-codex", "mcp_servers"),
     ("cursor", "~/.cursor/mcp.json", "json-claude", "mcpServers"),
     ("opencode", "~/.config/opencode/opencode.json", "json-opencode", "mcp"),
+    ("pi", "~/.pi/agent/mcp.json", "json-claude", "mcpServers"),
     ("workbuddy", "~/.workbuddy", "unknown", ""),
 )
 
