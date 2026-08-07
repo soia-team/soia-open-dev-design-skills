@@ -1,9 +1,9 @@
 ---
 name: soia-dev-open-design-ops
 description: 提供供上层设计流程调用的 Open Design 原子操作与运行保障。触发：「检查 Open Design」「接入 DESIGN.md」「恢复设计会话」
-version: 1.4.3
+version: 1.5.0
 created_at: 2026-07-20 14:16:00
-updated_at: 2026-08-06 00:00:00
+updated_at: 2026-08-07 23:40:00
 created_by: gpt-5.6-sol
 updated_by: claude-sonnet-5
 ---
@@ -160,7 +160,7 @@ daemon 后台日志与 PID 状态写入用户 state 目录；可用 `OPEN_DESIGN
 > | --- | --- | --- |
 > | `cli` | 1–2 | — |
 > | `desktop` | 3 | **不要跑 `check_env.py` / `daemon_ctl.py`** |
-> | `desktop-mcp` | 3 + 4 | 同上；优先走 4，能力最全 |
+> | `desktop-mcp` | 3 为主，4 为辅 | 同上；**0.18.1 起 4 不是"能力最全"，见 4 的能力边界说明**——读写既有项目走 3 的 `desktop_ctl.py`，MCP 只对它自己新建、且桌面版还没来得及自动绑定 workspace 的项目短暂可用 |
 > | `none` | 按 `suggestions` 修复 | 不要硬跑任何一节 |
 >
 > **这一步不能省。** 只装了桌面版的机器上跑 `check_env.py` 必然返回
@@ -193,7 +193,7 @@ python3 scripts/daemon_ctl.py stop
 
 ### 3. 桌面版 App（与 CLI daemon 是两套，别混用）
 
-客户装了 `/Applications/Open Design.app` 时，上面的 CLI daemon 路线基本不适用：
+客户装了桌面版 App 时，上面的 CLI daemon 路线基本不适用：
 
 - **数据目录不同**：桌面版在 `~/Library/Application Support/Open Design/namespaces/<namespace>/data/`
   （`namespace` 通常是 `release-stable`），CLI 在仓库的 `.od/`。**两边互相看不见对方的项目**。
@@ -202,55 +202,91 @@ python3 scripts/daemon_ctl.py stop
   - `curl` 不认识 `od://` 这个 Electron 自定义 scheme，`curl -s od://app/api/health` 返回空；
   - 实测 `--daemon-url od://app` 在命令行下也解析失败（即使显式给了 `OD_SIDECAR_IPC_PATH`），
     该 scheme 目前只在 MCP sidecar 上下文里可用。
+  - **可执行文件路径不能写死**（0.18.1 实测 2026-08-07）：升级到 launcher 分发后，桌面版真正在跑的
+    `Open Design Helper` / `daemon-cli.mjs` 落在 `~/Library/Application Support/Open
+    Design/launcher/channels/<channel>/namespaces/<namespace>/versions/<version>/payload/` 下，
+    `version` 随自动升级变化；`/Applications/Open Design.app` 还在，但它是 launcher 维护的
+    "OS 启动入口"，版本可能落后于真正在跑的那个（本机实测前者 0.18.0、后者 0.18.1）。旧配置
+    只认 `/Applications` 固定路径，升级后会连到过期或不存在的可执行文件，表现为 daemon 看似启动了
+    实则是空壳。用 `desktop_ctl.resolve_launcher_payload()` 动态解析，不要手写路径：
 
-  打包版的 `od` 等价调用（实测可用）：
+    ```bash
+    python3 -c "
+    import sys; sys.path.insert(0, 'scripts')
+    import desktop_ctl, json
+    print(json.dumps(desktop_ctl.resolve_launcher_payload(), indent=2))
+    "
+    ```
+
+  打包版的 `od` 等价调用（实测可用，`$HELPER`/`$CLI` 取上面命令的 `helper`/`daemon_cli` 字段）：
 
   ```bash
-  HELPER="/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper"
-  CLI="/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs"
   od(){ ELECTRON_RUN_AS_NODE=1 "$HELPER" "$CLI" "$@"; }
   ```
 
   **它默认打 `http://127.0.0.1:7456`（CLI daemon 的端口），对桌面版无效**，
   所以每条命令都要显式带 `--daemon-url http://127.0.0.1:<探测到的端口>`。
 
-- **端口每次启动都变，且没有默认值**。不要写死 7456，也不要缓存上次探到的端口：
+- **端口每次启动都变，且没有默认值；同一台机器上可能同时活着不止一个 daemon 端口**
+  （本机实测两个 daemon 各自独立、互不同步，另有一个 Next.js UI 端口）。判活标准
+  0.18.1 起是 `GET /api/health` 返回 `{"ok":true,"version":"..."}`——**不能再用
+  `/api/projects` 的返回形状判断**，见下一条。已脚本化，优先用它，不要每次手敲：
 
   ```bash
-  lsof -nP -iTCP -sTCP:LISTEN | grep -i '^Open' | awk '{print $9}' | sed 's/.*://'
-  ```
-
-  逐个探测哪个是 daemon API（返回 `{"projects":[...]}`）；其余端口是 Next.js UI 和代理，会返回 HTML。
-  这件事已脚本化，优先用它，不要每次手敲：
-
-  ```bash
-  python3 scripts/desktop_ctl.py detect      # 活着的 daemon API 端口
+  python3 scripts/desktop_ctl.py detect      # 活着的 daemon API 端口（可能不止一个）
   python3 scripts/desktop_ctl.py projects    # 列项目，并标出谁缺 entryFile
   python3 scripts/desktop_ctl.py doctor      # 「看不到项目」一键体检
   ```
 
   `desktop_ctl.py` 是**只读诊断**：不改客户数据、不重启 App、不打印凭据；
   daemon 不可达时以非零退出码和明确 hint 收场，不假装正常。
+- **workspace 上下文门**（0.18.1 新增，实测 2026-08-07）：`GET /api/projects`（不带 id）不再报错，
+  但只返回**从未绑定过 workspace** 的项目——桌面版创建的项目基本都已绑定，所以这条老接口长期
+  回空数组是**正常现象，不是 daemon 坏了或客户没有项目**。已绑定项目要用
+  `GET /api/workspaces/<workspaceId>/projects` 或 `GET /api/projects/<id>`，且必须带
+  `x-od-workspace-id` / `x-od-workspace-member-id` header，否则 400 `WORKSPACE_CONTEXT_REQUIRED`。
+  本机单用户、从未登录云端账户的场景一样要带——这两个值不是凭据，是本机生成的 workspace/member id，
+  daemon 默认直接信任 header 自证的身份。`desktop_ctl.py` 已经自动处理（`resolve_workspace_identity()`
+  只读查 `app.sqlite` 推导这两个值），上面三个子命令不需要额外操作；只有自己手写 HTTP 调用时才需要
+  关心这一段——完整机制、根因与实测证据见 [references/desktop-app.md](references/desktop-app.md)。
 - **桌面版启动会接管并停掉 CLI daemon**，所以两者不能同时用。
 
-打包版 `od` 的等价调用、项目元数据（`entryFile` 与 `.artifact.json`）、「看不到项目」的诊断、删除本地插件要清的三处——见 [references/desktop-app.md](references/desktop-app.md)。
+打包版 `od` 的等价调用、项目元数据（`entryFile` 与 `.artifact.json`）、「看不到项目」的诊断、
+workspace 上下文门的完整机制与实测证据、删除本地插件要清的三处——见
+[references/desktop-app.md](references/desktop-app.md)。
 
-### 4. MCP 路线（能力最全，派 run 的唯一通路）
+### 4. MCP 路线（能力边界收窄，0.18.1 起不再是"派 run 的唯一通路"）
 
-桌面版把自己暴露成一个 MCP server。**这是唯一能「派活给 Open Design 让它自己
-生成、同时让客户在界面里全程看到」的通路**——HTTP API 只能读写文件，派不了 run。
+桌面版把自己暴露成一个 MCP server，`tools/list` 实测 22 个工具（`list_projects`、
+`get_project`、`get_file`、`list_files`、`search_files`、`get_artifact`、`create_project`、
+`create_artifact`、`write_file`、`delete_file`、`delete_project`、`list_skills`、`list_plugins`、
+`list_agents`、`start_run`、`get_run`、`cancel_run`、`get_active_context`、`collect_brief`、
+`confirm_brief`、`start_vela_login`、`get_vela_login_status`，完整签名见
+[references/mcp-hosts.md](references/mcp-hosts.md)）。
 
-```
-start_run(project, prompt)  → 立刻返回 runId，OD 自己 spawn agent 去做
-get_run(runId)              → queued|running|succeeded|failed|canceled
-```
+**但 0.18.1 实测（2026-08-07，多路径交叉验证，非单次观察）：MCP sidecar 对已绑定 workspace 的项目
+——也就是桌面版创建、且只要 App 还开着通常一分钟内就会自动绑定的几乎所有项目——完全不可用。**
+`list_projects` 回 `{"projects":[]}`，`get_project`/`get_file`/`list_files`/`start_run` 等按名或按
+活动上下文取到的项目一律报 `no projects on this daemon` 或 `WORKSPACE_CONTEXT_REQUIRED`。根因是
+sidecar 内部直接 `fetch()` daemon 的 `/api/projects`、`/api/projects/:id`，代码里**没有任何一处**
+附带上面那两个 workspace header，也不读任何环境变量去补——穷举 `OD_DEV_WORKSPACE_CONTEXT`、
+`OD_WORKSPACE_CONTEXT_SOURCE` 等候选变量逐个实测均无效。这是 sidecar 自身代码的限制，不是配置问题，
+换更"新"的 launcher 路径或加 bootstrap env 都不能修。
 
-**三条硬约束，不遵守就白跑**：prompt 必须内联 `tokens.css` 全文（run 内 agent 读
-`design-systems/` 是 404）；`toolBundle.mcpServers` 默认为空；实时进度只在磁盘的
-`<data>/runs/<runId>/events.jsonl` 里，`get_run` 看不到。
+**因此现在的分工是**：
 
-配置形态、逐家 agent 的实测矩阵、WorkBuddy 的 UI 字段、以及上述约束的完整说明——见
-[references/mcp-hosts.md](references/mcp-hosts.md)。
+- **读写既有项目**（列表、取文件、归档、比对）→ 走上一节的 `desktop_ctl.py`/HTTP，已经修好、实测可用。
+- **给 Open Design 派新的生成任务**（原 `start_run`/已下线的 `od run start`）→ **没有已验证的全自动
+  替代通路**。`od chat new --project <id> --workspace <id> --workspace-member <id>` 实测能对已绑定项目
+  成功建会话（这是唯一一条实测证实"显式传 workspace 参数能穿透这道门"的命令行路径）；`od automation
+  create --target reuse=<既有项目>` 实测**不支持** workspace 参数、对已绑定项目直接 403
+  `WORKSPACE_ACCESS_DENIED`。但"建会话"之后怎么触发一次真正的生成——本次侦察未验证，不写进本技能当
+  可用命令。当前唯一确定可靠的方式是**由客户在 App 界面里手动发起**。MCP 的 `create_project` +
+  `start_run` 组合仅在项目刚创建、还没被 App 自动绑定的短暂窗口内可用，不构成稳定契约，不建议依赖。
+
+完整实测记录（多环境变量组合、raw stdio JSON-RPC 会话、四条独立复现路径的原始输出）、旧版本
+（v0.13.0）仍成立的三条硬约束（prompt 需内联 `tokens.css`、`toolBundle.mcpServers` 默认为空、
+实时进度只在磁盘 `events.jsonl`）——见 [references/mcp-hosts.md](references/mcp-hosts.md)。
 
 ### 5. 把设计同步回客户代码仓
 
@@ -291,38 +327,30 @@ python3 scripts/od_sync.py --project <id> --repo <repo-root> --check \
 新页面通过在**同一个项目**里跑 run 生成，产出落进 `pages/`，再到 `index.html` 里把它从
 「待设计」挪到「已有设计稿」。旧的一次性项目在确认资产已并入后删除，别留着让客户困惑。
 
-命令行直接在既有项目里跑 run（不经 MCP，daemon 重启后立刻可用）：
+**`od run start/watch/info` 在 0.18.1 打包版里已下线**（`daemon-cli.mjs --help` 实测确认，
+2026-08-07；CLI 源码 checkout 路线是否仍有这三个子命令取决于 checkout 的版本，未验证）。
+本技能目前**没有已验证的全自动命令行替代**能对既有（已绑定 workspace 的）项目触发一次新的
+生成——这不是遗漏，是如实反映侦察结论，见上一节「4. MCP 路线」的能力边界。已验证与未验证的
+现状：
 
-```bash
-od run start --project <projectId> --agent codex \
-  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
-od run watch <runId> --daemon-url "$DAEMON_URL"   # ND-JSON 事件流
-od run info  <runId> --daemon-url "$DAEMON_URL"
-```
-
-不带 `--plugin` 时 daemon 会自行挑选（例如 `example-web-prototype`）；
-需要特定模板就显式传 `--plugin <id>`（`od` 无 plugin list 子命令，用
-`GET /api/plugins` 取 id）。生成通常要 5–30 分钟，轮询 `run info`，
-不要因为文件 mtime 不动就取消。
-
-**同一项目里做第二个页面，必须先开新会话**：`run start` 不带 `--conversation`
-会复用项目的默认会话。上一轮的任务还在上下文里，agent 会把新 brief 当成
-「继续上一轮」，回一句「当前没有新的改动请求」就正常退出——
-status=succeeded、exit=0、`artifactCount: 0`、无 agentMessage，**一个文件都不写**。
-先建新会话再跑：
-
-```bash
-curl -s -X POST "$DAEMON_URL/api/projects/<projectId>/conversations" \
-  -H 'content-type: application/json' -d '{}'      # 返回 conversation.id
-od run start --project <projectId> --conversation <newId> --agent codex \
-  --message "$(cat brief.md)" --json --daemon-url "$DAEMON_URL"
-```
-
-排查时看 `<data>/runs/<runId>/events.jsonl`：agent 的文字输出在 `data.type=="text"` 的事件里。
+- **建会话本身已验证可行**：`od chat new --project <projectId> --workspace <wsId>
+  --workspace-member <memberId> --daemon-url "$DAEMON_URL" --json` 对已绑定项目返回
+  200 和真实 `conversation.id`（`wsId`/`memberId` 取 `desktop_ctl.resolve_workspace_identity()`）。
+- **建会话之后怎么触发一次真正的生成，本次侦察未验证**，不写成可用命令。`od automation
+  create --target reuse=<projectId>` 实测**不支持** workspace 参数，对已绑定项目直接 403
+  `WORKSPACE_ACCESS_DENIED`，不是可用替代。
+- **当前唯一确定可靠的方式：客户在 App 界面里手动发起本轮生成。** 新会话建好后，把
+  `studioUrl`（`get_project`/`get_run` 的返回里都有，形如
+  `http://127.0.0.1:<port>/projects/<id>/conversations/<cid>`）发给客户，请客户点开并在
+  界面里发出 brief；agent 侧不要假装能替客户点这一下。
+- 排查已发起的 run 仍然看 `<data>/runs/<runId>/events.jsonl`：agent 的文字输出在
+  `data.type=="text"` 的事件里，`get_run(runId)`（MCP，只按 id 查、不经过项目名解析，
+  不受上面的 workspace 门影响）现在还会带 `studioUrl`、`agentMessage`、`executionDiagnostics`
+  等字段，比 v0.13.0 更丰富。
 
 **run 活不过 daemon 重启**：桌面版 daemon 掉线或重启后，进行中的 run 会连同记录一起消失
-（`run info` 返回 `NOT_FOUND`），且不留产物。所以长 run 期间不要重启 App；
-真的重启了就重新 `run start`，不要花时间找回原来那个 runId。
+（`get_run` 返回 `NOT_FOUND`），且不留产物。所以长 run 期间不要重启 App；
+真的重启了就按上面的方式重新建会话、请客户重新发起，不要花时间找回原来那个 runId。
 
 ## 设计系统管理与项目接入
 

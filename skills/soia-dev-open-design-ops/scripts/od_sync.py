@@ -41,19 +41,34 @@ BARE_COLOR_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b|rgba?\([\d.,\s%]+\)")
 
 
 def project_dir(project: str) -> str | None:
+    """按 id 或 name 找项目在磁盘上的目录。
+
+    0.18.1 实测(2026-08-07)：桌面版创建的项目基本都已绑定 workspace，
+    `desktop_ctl.probe()`（老接口）看不到它们；改用 `list_all_projects()`
+    合并未绑定/已绑定两份列表按 id/name 匹配，再用 `project_detail()`
+    （带 workspace header）取 `resolvedDir`——列表路由的返回体里没有这个字段，
+    只有单项目详情路由才给。
+    """
     port, _ = desktop_ctl.detect()
     if not port:
         return None
-    data = desktop_ctl.probe(port)
-    if not data:
-        return None
-    for item in data.get("projects") or []:
-        if project in (item.get("id"), item.get("name")):
-            resolved = item.get("resolvedDir")
-            if resolved and os.path.isdir(resolved):
-                return resolved
+    result = desktop_ctl.list_all_projects(port)
+    match = next(
+        (item for item in result["projects"] if project in (item.get("id"), item.get("name"))),
+        None,
+    )
+    if not match:
+        # daemon 完全看不到这个项目（可能确实不存在，也可能 workspace 身份
+        # 解析失败导致已绑定项目不可见）——退回按 id 猜磁盘默认布局。
+        guess = os.path.join(desktop_ctl.data_dir(), "projects", project)
+        return guess if os.path.isdir(guess) else None
+    headers = desktop_ctl.workspace_headers(result["identity"]) if match.get("bound") else {}
+    detail = desktop_ctl.project_detail(port, match["id"], headers)
+    resolved = detail.get("resolvedDir") if detail else None
+    if resolved and os.path.isdir(resolved):
+        return resolved
     # daemon 不给 resolvedDir 时退回默认布局
-    guess = os.path.join(desktop_ctl.data_dir(), "projects", project)
+    guess = os.path.join(desktop_ctl.data_dir(), "projects", match["id"])
     return guess if os.path.isdir(guess) else None
 
 

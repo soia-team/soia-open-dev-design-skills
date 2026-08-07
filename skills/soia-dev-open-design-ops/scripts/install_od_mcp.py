@@ -35,10 +35,32 @@ SERVER_NAME = "open-design"
 
 
 def build_config(namespace: str) -> dict[str, Any]:
-    """推导 MCP server 配置。namespace 必须来自实际探测，不写死。"""
+    """推导 MCP server 配置。namespace 必须来自实际探测，不写死。
+
+    0.18.1 实测(2026-08-07)两处不兼容，均已修复：
+
+    1. `command`/`args` 不再是 `/Applications/Open Design.app` 下的固定路径，
+       改经 `detect_route._resolved_payload()` 动态解析 launcher 的
+       `versions/<version>/payload/` ——版本号随自动升级变化，写死会连到不
+       存在或过期的可执行文件（旧配置正是这样连到了空 daemon）。
+    2. 新增 `OD_MCP_BOOTSTRAP_COMMAND` / `OD_MCP_BOOTSTRAP_ARGS`：daemon 不可
+       达时，sidecar 用它们以 `/usr/bin/open -g -j <launchPath> --args
+       --headless` 拉起一个 headless App 自举。`<launchPath>` 读
+       launcher 自己的 `install.json`（`_resolved_payload()["launch_path"]`），
+       实测它是 launcher 维护的 OS 级启动入口，**不一定等于** `command`/`args`
+       指向的 `versions/<version>/payload`——本机实测前者落后于后者一个版本
+       （0.18.0 vs 0.18.1），两者必须分别解析，不能相互替代或只解析一个。
+       `OD_MCP_BOOTSTRAP_ARGS` 的值本身是一段 JSON 数组文本，用
+       `separators=(",", ":")` 生成紧凑形式，与官方已验证可用的配置逐字节一致。
+    """
+    payload = detect_route._resolved_payload()
+    bootstrap_args = json.dumps(
+        ["-g", "-j", payload["launch_path"], "--args", "--headless"],
+        separators=(",", ":"),
+    )
     return {
-        "command": detect_route.HELPER,
-        "args": [detect_route.DAEMON_CLI, "mcp"],
+        "command": payload["helper"],
+        "args": [payload["daemon_cli"], "mcp"],
         "env": {
             "OD_DATA_DIR": os.path.join(
                 detect_route.desktop_ctl.APP_SUPPORT, "namespaces", namespace, "data"
@@ -46,6 +68,8 @@ def build_config(namespace: str) -> dict[str, Any]:
             "OD_SIDECAR_IPC_PATH": os.path.join(
                 detect_route.IPC_ROOT, namespace, "daemon.sock"
             ),
+            "OD_MCP_BOOTSTRAP_COMMAND": "/usr/bin/open",
+            "OD_MCP_BOOTSTRAP_ARGS": bootstrap_args,
             "ELECTRON_RUN_AS_NODE": "1",
         },
     }

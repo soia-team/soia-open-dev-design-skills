@@ -2,6 +2,121 @@
 
 > 主文件「环境与 daemon → 3. 桌面版 App」的展开。只在真的碰到这些症状时读。
 
+#### launcher 版本化路径（0.18.1 实测，2026-08-07）
+
+v0.13.0 时代桌面版的可执行文件固定在 `/Applications/Open Design.app` 下；升级到 launcher
+分发后，这个假设不再成立：
+
+```
+~/Library/Application Support/Open Design/launcher/channels/<channel>/namespaces/<namespace>/
+├── runtime.json     ← launcher 自己维护的"当前生效版本"指针（最权威）
+├── install.json     ← launchPath：OS 级启动入口，通常就是 /Applications/Open Design.app
+└── versions/
+    ├── 0.18.0/payload/Open Design.app/...
+    └── 0.18.1/payload/Open Design.app/...   ← 真正在跑的往往是这个
+```
+
+`runtime.json` 实测内容：
+
+```json
+{"active": {"generation": 2, "version": "0.18.1"}, "channel": "stable", "namespace": "release-stable"}
+```
+
+`install.json` 实测内容：
+
+```json
+{"channel": "stable", "launchPath": "/Applications/Open Design.app", "namespace": "release-stable"}
+```
+
+**两处路径不能相互替代**——本机实测 `install.json.launchPath` 指向的 `/Applications/Open
+Design.app` 版本号是 `0.18.0`，而 `runtime.json.active.version` 指向、且 MCP 配置
+`command`/`args` 实际在跑的是 `versions/0.18.1/payload/`。前者是 launcher 维护的 OS 级启动
+入口（Spotlight/Dock 双击打开的那个，Squirrel 式自更新可能还没来得及把它推到最新），后者才是
+"现在真正提供 daemon/MCP 服务的那份代码"。`OD_MCP_BOOTSTRAP_ARGS` 里 `open -j` 要打开的是
+**前者**（拉起 App 本身，版本随 launcher 自己更新即可），`command`/`args` 要指向的是**后者**
+（必须是当前生效版本，写死或指向旧版本都会连不上或行为对不上）。
+
+解析顺序（`scripts/desktop_ctl.py` 的 `resolve_launcher_payload()` 已实现，不要重新手写）：
+
+1. 读 `runtime.json` 的 `active.version`——比自己排序 `versions/` 目录名更权威，能区分
+   "磁盘上残留的旧版本目录" 和 "真正在跑的那个"（例如升级到一半的中间状态，`versions/` 下
+   已经有更高版本号的目录，但 `runtime.json` 还没切过去）。
+2. 读不出时，退化为扫描 `versions/` 目录取语义版本最大、且确实包含 `daemon-cli.mjs` 的那个。
+3. 都失败：回退固定路径 `/Applications/Open Design.app`（兼容非 launcher 的旧式安装，或
+   launcher 目录结构本身就不存在的场景）。
+
+实测本机两个版本目录（`0.18.0` 与 `0.18.1`）内置的 `design-systems/warm-editorial/tokens.css`
+逐字节一致（`diff` 无输出）——**这次侦察没有发现内容漂移**，但两个目录本质是不同版本，不保证
+永远一致；`references/design-systems.md` 里直接从 `/Applications/...` 读设计系统文件的写法
+同理应改用 `resolve_launcher_payload()["app_bundle"]` 而非硬编码 `/Applications`。
+
+#### workspace 上下文门（0.18.1 实测，2026-08-07）
+
+**症状**：`GET /api/projects` 返回 `{"projects":[]}`，即使磁盘上项目目录完好（本机
+`soia-family-study-design` 有 32 个 `pages/*.html`）；`GET /api/projects/<id>` 或文件路由
+返回 `400 {"code":"WORKSPACE_CONTEXT_REQUIRED"}`。
+
+**根因**（源码定位：打包内 `chunks/server-*.mjs`，函数名逐版本可能变但逻辑不变）：
+
+1. `GET /api/projects`（不带 id）内部调用 `listUnboundProjects2(db)`——**只返回从未绑定过
+   workspace 的项目**。桌面版创建的项目会被自动绑定到一个本机生成的 personal workspace
+   （见下），绑定后就从这个列表消失，不代表项目不存在或 daemon 坏了。
+2. 真正能看到全部项目的是 `GET /api/workspaces/<workspaceId>/projects`，以及单项目的
+   `GET /api/projects/<id>`——这两类路由（连同文件读取、run 相关路由）都要求请求带
+   `x-od-workspace-id` 与 `x-od-workspace-member-id` 两个 header，否则 400
+   `WORKSPACE_CONTEXT_REQUIRED`。校验函数默认（`OD_WORKSPACE_CONTEXT_SOURCE` 未设为
+   `"vela"` 时）**直接信任 header 自证的身份**，不查云端账户——本机场景下这两个值不是凭据，
+   不需要登录 Vela/云端账户。
+
+**这两个值本机怎么拿**（`app.sqlite` 只读查询，`scripts/desktop_ctl.py` 的
+`resolve_workspace_identity()` 已自动化，以下是它做的事、可以照抄手动核验）：
+
+```bash
+sqlite3 -readonly \
+  "$HOME/Library/Application Support/Open Design/namespaces/release-stable/data/app.sqlite" \
+  "SELECT DISTINCT workspace_id FROM workspace_projects;"
+# → 本机实测：y72... 这类 25 位小写字母数字 id（cuid2 风格），本机是唯一一个
+#   personal workspace，4 个项目全部绑定在这一个 id 下
+
+sqlite3 -readonly \
+  "$HOME/Library/Application Support/Open Design/namespaces/release-stable/data/app.sqlite" \
+  "SELECT created_by_workspace_member_id, updated_by_workspace_member_id
+     FROM workspace_projects WHERE workspace_id = '<上面查到的 id>' LIMIT 1;"
+# 本机实测两列均为 NULL（daemon 称之为 "unattributed"，一样被接受）；
+# 这时退回同一 workspace 下其它资源记录的建立者：
+sqlite3 -readonly \
+  "$HOME/Library/Application Support/Open Design/namespaces/release-stable/data/app.sqlite" \
+  "SELECT created_by_workspace_member_id FROM workspace_resources
+     WHERE workspace_id = '<同上>' AND created_by_workspace_member_id IS NOT NULL LIMIT 1;"
+```
+
+**独立交叉验证**（不止一条证据链）：桌面版自己的日志（`namespaces/<ns>/logs/desktop/latest.log`）
+里能直接搜到它自己发起的请求带着这两个值——`GET /api/workspace/events?workspaceId=<同上>&
+workspaceMemberId=<同上>`——与 sqlite 查到的完全一致，证明这不是巧合或误读表结构。
+
+**实测：带上 header 后完全恢复**：
+
+```bash
+WSID=<上面查到的 workspace_id>
+MEMBERID=<上面查到的 member_id>
+curl -s "http://127.0.0.1:<port>/api/workspaces/$WSID/projects" \
+  -H "x-od-workspace-id: $WSID" -H "x-od-workspace-member-id: $MEMBERID"
+# → 200，返回全部 4 个真实项目，含 entryFile、designSystemId、linkedDirs 等完整元数据；
+#   不带这两个 header 时同一路由是 400 WORKSPACE_CONTEXT_REQUIRED
+```
+
+`GET /api/projects/<id>`（取单项目详情，含列表路由没有的 `resolvedDir` 字段）、
+`GET /api/projects/<id>/files/<name>`（取文件原始内容）同样需要这两个 header，机制一致。
+
+**这不是本机独有的巧合性 bug**：同一次侦察里，一个真实的历史生成 run（`get_run` 读到的
+`agentMessage`）里，Open Design 自己内部的图片导出工具也报了同样的错——"实际图片导出此前被
+缺失的工作区成员上下文阻断"——说明这道门是 0.18.1 内部普遍生效的机制，不只影响外部调用方。
+
+**MCP sidecar 不受益于上面这套 header 方案**：sidecar 内部直接 `fetch()` 这些路由，代码里
+没有任何地方读环境变量或附带这两个 header（详见
+[mcp-hosts.md](mcp-hosts.md) 的能力边界一节），所以本节的修复只对 HTTP/`desktop_ctl.py` 生效，
+不能让 MCP 工具跟着恢复。
+
 #### 客户报「打开应用看不到项目了，只能重启」
 
 这是桌面版的已知形态，不是数据丢失。根因是 **UI 与 daemon 是独立进程**：daemon 挂掉或换端口后 UI 仍然活着，于是界面能打开、项目列表却空白（代理还在往已死的旧端口转发，返回 `ECONNREFUSED`）。

@@ -15,6 +15,10 @@
 退出码：
     0  至少一条路线可用
     1  三条都不可用（此时 suggestions 给出修复方向）
+
+0.18.1 实测(2026-08-07)：`APP_BUNDLE`/`HELPER`/`DAEMON_CLI` 不再是模块级常量，
+改为每次运行时经 `desktop_ctl.resolve_launcher_payload()` 动态解析——版本号
+会随桌面版自动升级变化，写死会连到不存在或过期的路径。详见该函数的 docstring。
 """
 from __future__ import annotations
 
@@ -29,13 +33,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_env  # noqa: E402
 import desktop_ctl  # noqa: E402
 
-APP_BUNDLE = "/Applications/Open Design.app"
-HELPER = (
-    f"{APP_BUNDLE}/Contents/Frameworks/Open Design Helper.app"
-    "/Contents/MacOS/Open Design Helper"
-)
-DAEMON_CLI = f"{APP_BUNDLE}/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs"
 IPC_ROOT = "/tmp/open-design/ipc"
+
+
+def _resolved_payload() -> dict:
+    """当前 launcher payload 解析结果。每次调用重新探测，不缓存——桌面版可能
+    在两次调用之间升级或切换 namespace。"""
+    return desktop_ctl.resolve_launcher_payload()
+
+
+# 供 install_od_mcp.py 等旧调用方以 `detect_route.HELPER` / `detect_route.DAEMON_CLI`
+# 形式读取的模块级快照：取一次当前解析结果。同一进程内多次探测应使用
+# `_resolved_payload()` 而不是这两个快照，避免长生命周期进程里版本变化不生效。
+_PAYLOAD_SNAPSHOT = _resolved_payload()
+APP_BUNDLE = _PAYLOAD_SNAPSHOT["app_bundle"]
+HELPER = _PAYLOAD_SNAPSHOT["helper"]
+DAEMON_CLI = _PAYLOAD_SNAPSHOT["daemon_cli"]
 
 # 各家 agent 的 MCP 落点。**键名与条目结构逐个实测过，不要按 Claude 的格式套**：
 #   json-claude   mcpServers.<name> = {command: str, args: [...], env: {...}}
@@ -81,7 +94,13 @@ def probe_cli() -> dict[str, Any]:
 
 
 def probe_desktop() -> dict[str, Any]:
-    """桌面版路线：App 装了、数据目录在、daemon API 端口活着。"""
+    """桌面版路线：App 装了、数据目录在、daemon API 端口活着。
+
+    0.18.1 起 `desktop_ctl.detect()` 用 `/api/health` 判活（不再是
+    `/api/projects` 的返回形状），并且能在一台机器上同时报出多个活的
+    daemon 端口（实测桌面版会起不止一个 daemon 进程）。
+    """
+    payload = _resolved_payload()
     port, ports = desktop_ctl.detect()
     namespaces: list[str] = []
     ns_root = os.path.join(desktop_ctl.APP_SUPPORT, "namespaces")
@@ -89,13 +108,18 @@ def probe_desktop() -> dict[str, Any]:
         namespaces = sorted(
             n for n in os.listdir(ns_root) if os.path.isdir(os.path.join(ns_root, n))
         )
+    identity = desktop_ctl.resolve_workspace_identity()
     return {
         "available": bool(port),
         "evidence": {
-            "app_bundle": os.path.isdir(APP_BUNDLE),
+            "app_bundle": os.path.isdir(payload["app_bundle"]),
+            "resolved_version": payload["version"],
+            "resolved_source": payload["source"],
             "api_port": port,
             "listening_ports": ports,
             "namespaces": namespaces,
+            "workspace_id_resolved": bool(identity.get("workspace_id")),
+            "workspace_member_id_resolved": bool(identity.get("workspace_member_id")),
         },
         # 端口每次启动都变，别把它写进任何配置或文档
         "blockers": [] if port else ["no_live_daemon_api_port"],
@@ -150,13 +174,29 @@ def _toml_has_open_design(path: str) -> bool | None:
 def probe_mcp() -> dict[str, Any]:
     """MCP 路线：sidecar 可执行文件在不在，哪些 agent 已经配了 open-design。
 
-    注意两点：
+    注意三点：
     1. 本脚本探测的是「配置里装没装」。当前这个 agent 手里到底有没有
        mcp__open-design__* 工具，只有它自己知道——脚本无法代答。
     2. 判定必须按格式解析到 MCP 注册表那一段。裸用子串匹配会被骗：codex 的
        config.toml 里有 [projects."…/upstream/open-design"]，那是项目路径，
        不是 MCP 配置，子串匹配会误报「已配」。
+    3. **「配置装好了」不等于「MCP 能看见项目」。** 0.18.1 实测(2026-08-07)：
+       MCP sidecar（打包内 `chunks/chunk-*.mjs` 里的 MCP server 实现，用
+       `list_projects`/`get_project` 等工具时）内部直接 `fetch()` daemon 的
+       `/api/projects`、`/api/projects/:id`，从不附带 `x-od-workspace-id` /
+       `x-od-workspace-member-id` header，也不读任何环境变量（穷举 `OD_*`
+       环境变量、以及专供 daemon 自身请求校验用的 `OD_DEV_WORKSPACE_CONTEXT`
+       / `OD_WORKSPACE_CONTEXT_SOURCE`，逐个通过 stdio 直起 sidecar 实测，均
+       无效）。已绑定 workspace 的项目——桌面版创建的项目几乎全部如此，且
+       未绑定的项目只要 App 还开着，通常一分钟内就会被自动绑定——因此对
+       `list_projects`/`get_project`/`get_file`/`list_files`/`start_run`
+       等工具全部不可见，报 `no projects on this daemon` 或
+       `daemon 400 ... WORKSPACE_CONTEXT_REQUIRED`。这是 sidecar 代码本身的
+       限制，不是配置问题，本脚本据此在下面加一条 `workspace_gap` 证据，供
+       `install_od_mcp.py`/上层技能据此调整预期，而不是把「装好了」误报成
+       「能用」。
     """
+    payload = _resolved_payload()
     sockets: list[str] = []
     if os.path.isdir(IPC_ROOT):
         for ns in sorted(os.listdir(IPC_ROOT)):
@@ -187,14 +227,28 @@ def probe_mcp() -> dict[str, Any]:
             "has_open_design": configured,
         }
 
-    launchable = os.path.exists(HELPER) and os.path.exists(DAEMON_CLI)
+    launchable = os.path.exists(payload["helper"]) and os.path.exists(payload["daemon_cli"])
+    identity = desktop_ctl.resolve_workspace_identity()
+    has_bound_projects = identity.get("workspace_id") is not None
     return {
         "available": launchable,
         "evidence": {
-            "helper": os.path.exists(HELPER),
-            "daemon_cli": os.path.exists(DAEMON_CLI),
+            "helper": os.path.exists(payload["helper"]),
+            "daemon_cli": os.path.exists(payload["daemon_cli"]),
+            "resolved_version": payload["version"],
+            "resolved_source": payload["source"],
             "ipc_sockets": sockets,
             "agents": agents,
+            "workspace_gap": {
+                "affected": launchable and has_bound_projects,
+                "reason": (
+                    "0.18.1 的 MCP sidecar 不附带 workspace header，已绑定的项目"
+                    "对 list_projects/get_project/get_file/start_run 等工具不可见"
+                    if launchable and has_bound_projects else None
+                ),
+                "workaround": "改走 HTTP + x-od-workspace-id/x-od-workspace-member-id（见 desktop_ctl.py）"
+                if launchable and has_bound_projects else None,
+            },
         },
         "blockers": [] if launchable else ["mcp_sidecar_binary_missing"],
     }
@@ -203,8 +257,11 @@ def probe_mcp() -> dict[str, Any]:
 def decide() -> dict[str, Any]:
     routes = {"cli": probe_cli(), "desktop": probe_desktop(), "mcp": probe_mcp()}
 
-    # 优先级来自实测：MCP 能派 run 且能读写项目文件，桌面版 HTTP API 次之，
-    # CLI 在打包安装的机器上基本用不上（od 不进 PATH）。
+    # 优先级来自实测：desktop-mcp 比单纯 desktop 多出 list_agents/list_skills/
+    # list_plugins、按 runId 查 get_run 等不受 workspace 门影响的能力，即便
+    # MCP 对已绑定项目的 list_projects/get_project/start_run 现在不可用（见
+    # probe_mcp 文档字符串），有它仍然严格不比没它差；CLI 在打包安装的机器上
+    # 基本用不上（od 不进 PATH）。
     if routes["mcp"]["available"] and routes["desktop"]["available"]:
         route = "desktop-mcp"
     elif routes["desktop"]["available"]:
@@ -237,6 +294,14 @@ def decide() -> dict[str, Any]:
             + "、".join(unknown)
             + "；不要照 Claude Code 的 JSON 格式硬套。"
         )
+    if routes["mcp"]["evidence"]["workspace_gap"]["affected"]:
+        suggestions.append(
+            "MCP 已连通，但本机已绑定 workspace 的项目在 0.18.1 下对 "
+            "list_projects/get_project/start_run 等工具不可见（上游 sidecar 限制，"
+            "见 probe_mcp 文档字符串）；要读写既有项目改用 "
+            "desktop_ctl.py（自动带 x-od-workspace-id/x-od-workspace-member-id），"
+            "MCP 仅对它自己新建、且 App 还没来得及自动绑定的项目短暂可用。"
+        )
     return {"route": route, "routes": routes, "suggestions": suggestions}
 
 
@@ -254,6 +319,10 @@ def render(result: dict[str, Any]) -> str:
                         meta["has_open_design"]
                     ]
                     lines.append(f"      {agent:<12} {flag:<6}{meta['config']}")
+            elif key == "workspace_gap":
+                if value.get("affected"):
+                    lines.append(f"      workspace_gap: {value['reason']}")
+                    lines.append(f"                     → {value['workaround']}")
             else:
                 lines.append(f"      {key}: {value}")
         if info["blockers"]:

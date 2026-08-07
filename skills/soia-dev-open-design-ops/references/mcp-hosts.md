@@ -1,22 +1,141 @@
 # MCP 各宿主的配置形态与实测矩阵
 
-> 主文件「环境与 daemon → 4. MCP 路线」的展开：配置形态、逐家实测结果、派 run 的硬约束。
+> 主文件「环境与 daemon → 4. MCP 路线」的展开：配置形态、能力边界、逐家实测结果、派 run 的硬约束。
 
-#### 配置形态
+## 0.18.1 能力边界（实测，2026-08-07）——先读这节，再看下面的历史配置矩阵
+
+**结论：MCP 连通性（配置、握手、工具调用）在 0.18.1 上完全恢复，但对已绑定 workspace 的项目
+——也就是桌面版创建、且只要 App 还开着通常一分钟内就会自动绑定的几乎所有项目——`list_projects`
+/`get_project`/`get_file`/`list_files`/`search_files`/`get_artifact`/`start_run`（按名或按活动
+上下文取项目时）全部不可用。** 这不是配置问题，改配置、加环境变量都修不了；根因在打包内 MCP
+sidecar 自身代码。以下是完整证据链，供复核或日后升级重新验证。
+
+#### 实测的完整 22 工具清单
+
+用权威配置以 stdio 直起 `daemon-cli.mjs mcp`，发 `initialize` + `tools/list`，`serverInfo`
+为 `{"name":"open-design","version":"0.2.0"}`，`protocolVersion` 为 `2024-11-05`：
+
+```
+collect_brief          confirm_brief           list_projects
+get_active_context      get_artifact            get_project
+get_file                search_files            list_files
+create_artifact         write_file              delete_file
+delete_project          create_project          list_skills
+list_plugins            start_vela_login        get_vela_login_status
+start_run               get_run                 cancel_run
+list_agents
+```
+
+（v0.13.0 时期只文档化了 `start_run`/`get_run` 两个；实际 0.18.1 一直有这一整套，`tools/list`
+在两个版本应该都能拿到完整签名——本次只对 0.18.1 做了 stdio 直连验证。）
+
+#### 根因：sidecar 从不附带 workspace header，也不读任何环境变量
+
+打包内 MCP server 实现（`chunks/chunk-*.mjs`，18000+ 行，`SERVER_NAME="open-design"`,
+`SERVER_VERSION="0.2.0"`）里，`list_projects`/`get_project` 等工具的实现是：
+
+```js
+case "list_projects":
+  return ok(await getJson(`${baseUrl}/api/projects`));
+// ...
+async function getJson(url) {
+  const resp = await fetch(url);          // ← 没有第二个 headers 参数
+  ...
+}
+```
+
+全文件 `grep process.env` **零命中**——sidecar 代码里没有任何地方读环境变量，更不用说拿去
+构造 `x-od-workspace-id`/`x-od-workspace-member-id` header。`/api/projects`（不带 id）本身
+只返回从未绑定 workspace 的项目（见 [desktop-app.md](desktop-app.md) 的「workspace 上下文门」），
+所以 `list_projects` 长期回 `{"projects":[]}`；`get_project`/`get_file`/`list_files` 走
+`/api/projects/:id`，对已绑定项目直接 400 `WORKSPACE_CONTEXT_REQUIRED`。
+
+**穷举测试过的候选环境变量，逐个通过 stdio 直起 sidecar + 真实调用验证，均无效**：
+
+| 候选 env | 结果 |
+| --- | --- |
+| （不设，权威配置原样） | `list_projects` → `{"projects":[]}` |
+| `OD_DEV_WORKSPACE_CONTEXT`（JSON 字符串，daemon 主进程确实读它，但只用于日后可能的开发态注入，MCP sidecar 代码不读） | 无效，结果同上 |
+| `OD_WORKSPACE_ID` / `OD_WORKSPACE_MEMBER_ID`（按命名规律猜测，实际不存在这两个变量） | 无效，结果同上 |
+| `OD_WORKSPACE_CONTEXT_SOURCE=local` | 无效，结果同上 |
+
+四次测试用的是四个**独立**的 sidecar 进程（每次重新 stdio 直起，不是同一进程反复调用），
+排除了"前一次调用留下缓存"这类混淆。另有一次是当前正在使用的、Claude Code 长驻 MCP 连接
+（同一份权威配置，含 `OD_MCP_BOOTSTRAP_*`），结果一致。
+
+#### 什么仍然有效
+
+- **`create_project` + 短暂窗口内的 `list_projects`/`get_project`**：新建的项目最初是
+  "未绑定" 状态，此时能被 `list_projects` 看到（因为它走的正是"只返回未绑定项目"那条老接口）。
+  但这个窗口**不可靠**——实测同一个刚创建的项目，在 App 保持打开、约一分钟后被自动绑定
+  （`app.sqlite.workspace_projects` 多出一行），此后 `get_project`/`start_run` 对它同样
+  报 `no projects on this daemon`。**没有在这个窗口内成功跑完一次 `start_run`**——尝试时
+  窗口已经关闭，报错方式与已绑定项目完全一样，不构成可依赖的契约。
+- **`get_run(runId)`**：只按 id 查、不经过项目名/列表解析，不受这道门影响，正常返回，且字段
+  比 v0.13.0 更丰富（见下文「派 run 的契约」）。
+- **`get_active_context`**：只要客户最近 5 分钟内点过 App 里的项目就能正确返回
+  `{"active":true,"projectId":...}`；但拿到这个 id 后再去调 `get_project()`/`list_files()`
+  （它们会用这个 id 打 `/api/projects/:id`）一样会撞上 400——active context 能查到，不代表
+  后续操作能成功。
+- **`list_agents`/`list_skills`/`list_plugins`**：不涉及具体项目，不受影响，正常返回真实数据
+  （实测 `list_agents` 返回 12 个 agent 的完整型号列表）。
+
+#### 已绑定项目现在怎么读写：改走 HTTP
+
+见 [desktop-app.md](desktop-app.md) 的「workspace 上下文门」一节与 `scripts/desktop_ctl.py`——
+带上 `x-od-workspace-id`/`x-od-workspace-member-id` 两个 header 直接 HTTP 调用，实测完全恢复，
+能拿到全部真实项目与文件内容。
+
+#### 派新生成任务：`od chat new` 验证可行，`od automation` 验证不可行
+
+命令行侧，`daemon-cli.mjs --help` 实测（2026-08-07）确认 v0.13.0 的 `od run start/watch/info`
+**已下线**，取而代之的相关子命令：
+
+- **`od chat new --project <id> --workspace <wsId> --workspace-member <memberId> [--seed-from
+  <cid>] [--title "<t>"] [--json]`**——**实测成功**：对已绑定 workspace 的真实项目
+  （`soia-family-study-design`）建会话，返回 200 与真实 `conversation.id`。这是唯一一条实测
+  证实"显式传 workspace 参数能穿透这道门"的命令行路径，`--help` 里明确标注这两个 flag 是
+  "Explicit Workspace id/member id for the bound project"，说明这是官方预期的用法，不是巧合。
+  测试后已用 `DELETE /api/projects/<id>/conversations/<cid>` 清理测试会话，未在客户项目里
+  留下痕迹。
+- **`od automation create --target reuse=<id> ...`**——**实测不可行**：这条命令不接受
+  `--workspace`/`--workspace-member`（传了直接报 `unknown flag: --workspace`），对已绑定项目
+  返回 `403 {"code":"WORKSPACE_ACCESS_DENIED","message":"the routine belongs to a different
+  Workspace"}`。`od automation create --target new-project`（面向全新项目）未测试。
+  `od automation list`（只读）本身不需要 workspace 参数，正常返回。
+
+**"建会话之后怎么触发一次真正的生成"——本次侦察未验证，不写成可用命令。** 建会话只是第一步；
+`od chat new` 之后应该怎么发消息触发生成、消息体格式是什么，超出了本次侦察范围（会产生真实的
+模型调用费用，未在没有更明确契约前贸然尝试）。**当前唯一确定可靠的方式是客户在 App 界面里手动
+发起。** 上层技能/流程不应假装存在一条全自动的"HTTP/CLI 直接派生成任务"通路。
+
+#### 装 MCP：客户端与配置形态
 
 不走网络端口，而是用 Electron Helper 以 Node 模式跑打包内的 `daemon-cli.mjs mcp`：
 
 ```json
 "open-design": {
-  "command": "/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper",
-  "args": ["/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs", "mcp"],
+  "command": "<launcher>/versions/<version>/payload/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper",
+  "args": ["<launcher>/versions/<version>/payload/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs", "mcp"],
   "env": {
     "OD_DATA_DIR": "<APP_SUPPORT>/namespaces/<namespace>/data",
     "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/<namespace>/daemon.sock",
+    "OD_MCP_BOOTSTRAP_COMMAND": "/usr/bin/open",
+    "OD_MCP_BOOTSTRAP_ARGS": "[\"-g\",\"-j\",\"<install.json 的 launchPath，通常是 /Applications/Open Design.app>\",\"--args\",\"--headless\"]",
     "ELECTRON_RUN_AS_NODE": "1"
   }
 }
 ```
+
+`<launcher>` = `<APP_SUPPORT>/launcher/channels/<channel>/namespaces/<namespace>`，
+`<version>` 取 `runtime.json.active.version`——完整解析逻辑见
+[desktop-app.md](desktop-app.md)「launcher 版本化路径」一节，`scripts/desktop_ctl.py` 的
+`resolve_launcher_payload()` 已实现，`install_od_mcp.py` 已改用它生成配置，不要手写路径。
+
+**这是 v0.13.0 配置（`command`/`args` 固定指向 `/Applications/Open Design.app`）在 0.18.1 上会
+踩的坑**：固定路径可能连到过期版本（本机实测 `/Applications` 下是 0.18.0，真正在跑的是
+0.18.1），表现为 sidecar 能起来、握手也成功，但连到的是一个空/过期 daemon——`OD_MCP_BOOTSTRAP_*`
+两个新增 env 才是让它在 daemon 不可达时自举拉起正确 App 的机制，v0.13.0 配置没有这两个键。
 
 `OD_SIDECAR_IPC_PATH` 正是「`od://` scheme 只在 MCP sidecar 上下文里可用」的原因。
 `namespace` 要从 `detect_route.py` 的输出取，不要写死 `release-stable`。
@@ -24,9 +143,9 @@
 **装 MCP 不能靠客户端 UI。** Claude 桌面版的 Add custom connector 只接受
 `Remote MCP server URL`，本地 stdio server 加不进去；那个 Connectors 菜单列的是
 托管型连接器，本地 server 不会出现在里面。只能写配置文件或用 `claude mcp add`。
-用 `install_od_mcp.py` 处理各家格式差异。
+用 `install_od_mcp.py` 处理各家格式差异（已适配上面两个新增 env）。
 
-#### 实测矩阵（2026-08-05）
+#### 实测矩阵（2026-08-05；连通性 2026-08-07 用 0.18.1 配置复核，结论不变——见上方能力边界）
 
 **只写实际跑过的，未验证的一律标未验证。** 证据强度分三级：
 配置被解析 < 连接握手成功 < 工具调用返回真实数据。
@@ -40,6 +159,13 @@
 | WorkBuddy | **UI 配置**（插件 → MCP → Add），非配置文件 | 客户端界面 | ⬜ 参数已核对，**脚本不适用**——见下 |
 | pi | `~/.pi/agent/mcp.json`（装 `pi-mcp-adapter` 后）→ `mcpServers` | `pi -p "调用 open-design MCP 的 list_projects..." --mode text` | ✅ **工具调用**：返回 5 个真实项目 id，见下 |
 | qwen | `settings.json` 无 MCP 键 | — | ➖ 不适用（`shells/init-mcp.sh` 是改 Claude 配置的工具，非自身 MCP） |
+
+**上表「返回 N 个项目 id」这几条是 v0.13.0 时代的结果，0.18.1 上不再可复现**——见本文件最前面
+「0.18.1 能力边界」一节：同一个 `list_projects` 调用现在对已绑定 workspace 的项目返回空数组。
+上表仍然如实证明了**连通性/配置格式没问题**（这部分结论继续成立，0.18.1 上用新配置复核过
+Claude Code、codex、opencode、pi 四家，握手/工具调用本身依旧成功），只是"工具调用返回真实数据"
+这一级证据在 0.18.1 上已经不能靠 `list_projects` 拿到，改用上面验证过的 `list_agents`（本机
+0.18.1 实测返回 12 个 agent 的完整型号列表）或 `get_run(<已知 runId>)` 来验证"配置真的通到底了"。
 
 两条来自实测的要点：
 
@@ -99,11 +225,13 @@ claude-desktop / codex / opencode 五个宿主，把它们**全部**已配置的
 {
   "mcpServers": {
     "open-design": {
-      "command": "/Applications/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper",
-      "args": ["/Applications/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs", "mcp"],
+      "command": "<launcher>/versions/<version>/payload/Open Design.app/Contents/Frameworks/Open Design Helper.app/Contents/MacOS/Open Design Helper",
+      "args": ["<launcher>/versions/<version>/payload/Open Design.app/Contents/Resources/app/prebundled/daemon/daemon-cli.mjs", "mcp"],
       "env": {
         "OD_DATA_DIR": "<APP_SUPPORT>/namespaces/<namespace>/data",
         "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/<namespace>/daemon.sock",
+        "OD_MCP_BOOTSTRAP_COMMAND": "/usr/bin/open",
+        "OD_MCP_BOOTSTRAP_ARGS": "[\"-g\",\"-j\",\"<install.json 的 launchPath>\",\"--args\",\"--headless\"]",
         "ELECTRON_RUN_AS_NODE": "1"
       }
     }
@@ -115,11 +243,12 @@ claude-desktop / codex / opencode 五个宿主，把它们**全部**已配置的
 验证用非交互模式（`--print`/`-p`），不用进 TUI：
 
 ```bash
-pi -p "调用 open-design MCP 的 list_projects 工具，只输出它返回的原始项目列表" --mode text
+pi -p "调用 open-design MCP 的 list_agents 工具，只输出它返回的原始 agent 列表" --mode text
 ```
 
-实测输出是 5 个真实项目 id/name（与 codex 那条验证拿到的一致），达到矩阵里最高一级证据
-（工具调用返回真实数据），不是配置解析或握手成功这两级。
+**v0.13.0 时代（2026-08-05）实测输出是 5 个真实项目 id/name（用的是 `list_projects`）**，
+达到矩阵里最高一级证据（工具调用返回真实数据）。0.18.1 上 `list_projects` 已不再能拿到已绑定
+项目（见文件最前面「能力边界」），验证连通性改用 `list_agents` 这类不受 workspace 门影响的工具。
 
 #### WorkBuddy：UI 配置，脚本不适用
 
@@ -134,6 +263,9 @@ WorkBuddy 在客户端里配 MCP（插件 → MCP → Add），**没有可写的
 | `ELECTRON_RUN_AS_NODE` | `1` | **必填固定值**。缺了它 Helper 会以 GUI 模式启动，MCP 起不来 |
 | `OD_DATA_DIR` | `<APP_SUPPORT>/namespaces/<namespace>/data` | **不能写死**，`namespace` 随安装变 |
 | `OD_SIDECAR_IPC_PATH` | `/tmp/open-design/ipc/<namespace>/daemon.sock` | **不能写死**，同上 |
+| `OD_MCP_BOOTSTRAP_COMMAND`（0.18.1 新增） | `/usr/bin/open` | 可以（固定 OS 工具路径） |
+| `OD_MCP_BOOTSTRAP_ARGS`（0.18.1 新增） | `["-g","-j","<install.json 的 launchPath>","--args","--headless"]`（一段 JSON 数组文本，整体填进这一个字段） | **不建议写死**，`launchPath` 理论上随安装变，虽然本机实测就是 `/Applications/Open Design.app` |
+| 启动命令/参数 1/2 里的可执行文件路径（0.18.1 变化） | 用 `<launcher>/versions/<version>/payload/...` 下的实际路径，**不是** `/Applications/Open Design.app` 下那份 | **不能写死**——本机实测 `/Applications` 下是 0.18.0，真正在跑的是 versions 目录下的 0.18.1，两者不是同一份文件；`version` 随自动升级变化 |
 | 环境变量传递 | 留空 | — |
 | **工作目录** | **留空** | OD MCP 通过 IPC socket 连 daemon，不依赖 cwd。实测佐证：codex 的 `cwd: -`、opencode 未设 cwd，两者均连通且 codex 完成了工具调用 |
 
@@ -146,12 +278,21 @@ WorkBuddy 在客户端里配 MCP（插件 → MCP → Add），**没有可写的
 claude mcp list
 ```
 
-#### 派 run 的契约
+#### 派 run 的契约（v0.13.0 时期写下的三条教训——**先决条件是能跑起来**，0.18.1 上
+`start_run` 对已绑定项目已经因为「能力边界」一节说的 workspace 门根本起不了 run；
+以下内容对「MCP 自己新建、还没被自动绑定的项目」那个短暂窗口，或未来上游修复
+sidecar 之后仍然成立，保留供参考）
 
 ```
 start_run(project, prompt)  → 立刻返回 runId，OD 自己 spawn agent 去做
 get_run(runId)              → queued|running|succeeded|failed|canceled
 ```
+
+`get_run` 0.18.1 实测返回的字段比这两行描述丰富得多，除了 `status`，还有
+`agentMessage`（agent 的文字回复，成功但没产出文件时——例如被上面的 workspace 门挡住某个
+子步骤——里面会有具体原因）、`studioUrl`（可点开在浏览器里看这轮对话的 Open Design 页面）、
+`executionDiagnostics`（排队/首个模型响应/工具调用等分阶段耗时和 token/cache 明细）、
+`hint`（daemon 自己给的下一步建议，例如"没有产物时把 agentMessage 转达给用户"）。
 
 三条实测教训：
 

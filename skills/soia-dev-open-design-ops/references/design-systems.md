@@ -25,12 +25,22 @@ tokens.css  >  components.html  >  DESIGN.md / USAGE.md
 `<style>` 块」的执行真源，`components.html` 定位为「精确选择器与状态」，
 `DESIGN.md` 只是视觉意图散文。散文和令牌打架时，按令牌走。
 
-内置包在 App 里，不在项目目录：
+内置包在 App 里，不在项目目录。0.18.1 起可执行文件路径是动态的（见
+[desktop-app.md](desktop-app.md)「launcher 版本化路径」），`/Applications/Open Design.app`
+可能落后于真正在跑的版本——取 `resolve_launcher_payload()["app_bundle"]` 而不是硬编码：
 
 ```bash
-ls "/Applications/Open Design.app/Contents/Resources/open-design/design-systems/<id>/"
+APP_BUNDLE=$(python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+import desktop_ctl
+print(desktop_ctl.resolve_launcher_payload()['app_bundle'])
+")
+ls "$APP_BUNDLE/Contents/Resources/open-design/design-systems/<id>/"
 # DESIGN.md  tokens.css  components.html  components.manifest.json  USAGE.md  …
 ```
+
+（本机实测 0.18.0 与 0.18.1 两个版本目录下的 `warm-editorial/tokens.css` 逐字节一致，
+未发现内容漂移，但两者本质是不同版本，不保证永远一致，仍应动态取。）
 
 用 HTTP API 拿元信息和 `DESIGN.md` 正文（`.body` 字段）：
 
