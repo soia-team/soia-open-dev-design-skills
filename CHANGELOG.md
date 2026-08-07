@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.8.1 — 2026-08-07
+
+适配 Open Design 0.18.1:workspace 上下文门与 launcher 动态路径,HTTP 路线恢复、MCP 能力边界如实标注
+
+## 修复
+- fix(open-design-ops): 适配 Open Design 0.18.1——workspace 门与 launcher 路径
+
+## 维护
+- chore(release): open next train after release
+
 ## v1.8.0 — 2026-08-06
 
 Open Design 三路线判定与 MCP 宿主实测矩阵(pi 经 pi-mcp-adapter 实测可用)、open-design-ops 渐进式重构
